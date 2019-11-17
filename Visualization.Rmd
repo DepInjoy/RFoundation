@@ -1,0 +1,147 @@
+---
+title: "R数据可视化进行探索性分析"
+output: github_document
+---
+# 数据简介
+    该数据集来自于优达的纳米学位课程，在课程中优达已经声明该数据集是伪谷歌数据并非真实的。下面是我对课程的整理并会添加一下自己的理解，来辅助增强对知识的深入理解。
+    
+* userid
+* age
+* dob_day:用户生日，日期
+* dob_year:用户生日，年             
+* dob_month:用户生日,月份
+* gender:性别
+* tenure:使用时长
+* friend_count:好友数量
+* friendships_initiated:交友请求
+* likes
+* likes_received
+* mobile_likes
+* mobile_likes_received
+* www_likes
+* www_likes_received
+
+一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
+```{r}
+# 安装和加载软件包
+library(ggplot2)
+library(ggthemes)
+library(gridExtra)
+```
+
+
+```{r}
+# 数据加载
+df_facebook <- read.csv("pseudo_facebook.tsv", sep = "\t")
+```
+
+
+## 单一变量探索单一变量
+```{r}
+theme_set(theme_minimal(12))
+```
+
+
+### 直方图
+
+```{r}
+#直方图绘制方式1
+qplot(data = df_facebook, x = dob_day, color = I("white"), fill = I("#2e7d32")) +
+    scale_x_continuous(breaks = 1:31)
+```
+
+```{r}
+#直方图绘制方式1
+ggplot(aes(x = dob_day), data = df_facebook) +
+    geom_histogram(binwidth = 1, color = "white", fill = "#2e7d32") +
+    scale_x_continuous(breaks =  1:31)
+```
+## 分面
+```{r}
+qplot(data = df_facebook, x = dob_day) +
+    scale_x_continuous(breaks = 1:31) +
+    facet_wrap(~dob_month, ncol = 4)
+```
+## 限制轴
+
+```{r}
+qplot(data = df_facebook, x = friend_count, xlim = c(0, 1000))
+```
+
+```{r}
+# 添加图层,breaks设置start, end,step来调整组宽
+qplot(data = df_facebook, x = friend_count, binwidth = 25) +
+    scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50))
+```
+  
+### 忽略NA
+```{r}
+qplot(data = subset(df_facebook, !is.na(df_facebook$gender)), x = friend_count, binwidth = 25) +
+    scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50)) +
+    facet_wrap(~gender)
+```
+
+### 数据转换
+```{r}
+library(gridExtra)
+# 通过包裹器进行数据变换
+p1 <- qplot(data = df_facebook, x = friend_count)
+p2 <- qplot(data =  df_facebook, x = sqrt(friend_count)) 
+p3 <- qplot(data =  df_facebook, x = log10(friend_count))
+grid.arrange(p1, p2, p3, ncol = 1)
+```
+```{r}
+# 通过添加图层实现，该方法同样适用于qplot
+p1 <- ggplot(data = df_facebook, aes(x = friend_count)) + geom_histogram()
+p2 <- p1 + scale_x_sqrt()
+p3 <- p1 + scale_x_log10()
+grid.arrange(p1, p2, p3, ncol = 1)
+```
+
+```{r}
+# 统计量计算
+table(df_facebook$gender)
+by(df_facebook$friend_count, df_facebook$gender, summary)
+```
+
+```{r}
+qplot(data = df_facebook, x = tenure/365, binwidth=0.25, 
+      color=I("white"), fill = I("#2e7d32"),
+      xlab = "Number of year using Facebook",
+      ylab = "Number of users in sample") +
+    scale_x_continuous(limits = c(0,7), breaks = seq(0, 7, 1))
+```
+```{r}
+qplot(data = df_facebook, x = age, binwidth = 1,
+        color=I("white"), fill = I("#2e7d32")) +
+    scale_x_continuous(limits = c(10,113), breaks = seq(10, 113, 5))
+```
+
+### 频率多边形
+```{r}
+qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
+      x = friend_count, binwidth = 25,
+      geom = "freqpoly", color = gender,
+      xlab = "Friend Count",
+      ylab = "Number of user with responding friend count") +
+    scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50))
+```
+```{r}
+qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
+      x = friend_count, binwidth = 25, y = ..count../sum(..count..),
+      geom = "freqpoly", color = gender,
+      xlab = "Friend Count",
+      ylab = "Proportion of user with responding friend count") +
+    scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50))
+```
+
+### 箱线图
+```{r}
+qplot(data = subset(df_facebook, !is.na(df_facebook$gender)), x = gender, y = friend_count, geom = "boxplot") +
+    coord_cartesian(ylim = c(0,250))
+```
+
+## 探索两个变量
+
+
+## 探索多个变量
