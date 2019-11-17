@@ -1,0 +1,82 @@
+---
+title: "R:子集化和分组"
+output: github_document
+---
+
+```{r}
+# 加载数据集
+stateInfo <- read.csv("stateData.csv")
+```
+
+### 子集化(Subsetting Data)
+[数据子集化优秀博文推荐](https://www.statmethods.net/management/subset.html)
+
+#### Selecting Variables
+```{r}
+stateRegionSubset <- subset(stateInfo, state.region == 1)
+stateRegionSubset1 <- stateInfo[stateInfo$state.region == 1, ]
+
+stateRegionSubset2 <- subset(stateInfo, state.region == 1, select = c("state.abb", "income", "state.region"))
+
+# 选择1至5行中state.abb, state.area, state.region
+subStateInfoState = stateInfo[c(1:5), c("state.abb", "state.area", "state.region")]
+
+stateInfo[c(1:5), ]
+stateInfo[, c("state.abb", "state.area", "income")]
+```
+
+
+#### Excluding (DROPPING) Variables
+```{r}
+mvars <- names(stateInfo) %in% c("state.abb", "state.area", "income")
+subStateInfo <- stateInfo[!mvars]
+
+# Excluding 1 and 2 rows
+subStateInfo1 <- stateInfo[c(-1, -2),]
+
+# Excluding 1 and 2 columns
+subStateInfo2 <- stateInfo[, c(-1, -2)]
+
+# Deleta variables state.region
+subStateInfo2$state.region <- NULL
+```
+
+
+#### Random Samples
+```{r}
+randomStateInfo <- stateInfo[sample(1:nrow(stateInfo), 50, replace = FALSE), ]
+```
+
+
+## 因子变量
+
+```{r}
+library(ggplot2)
+redditInfo <- read.csv("reddit.csv")
+```
+### 因子变量
+```{r}
+str(redditInfo)
+```
+
+```{r}
+table(redditInfo$age.range)
+```
+```{r}
+levels(redditInfo$age.range)
+```
+
+### 设置有序因子
+```{r}
+# one way
+redditInfo$age.range <- factor(redditInfo$age.range, 
+        levels = c("Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65 or Above"),
+        ordered = TRUE)
+# another way
+redditInfo$age.range <- ordered(redditInfo$age.range, 
+        levels = c("Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65 or Above"))
+
+qplot(data = redditInfo, x = age.range, color = I("white"), fill = I("#2e7d32"))
+```
+
+
