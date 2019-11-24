@@ -1,0 +1,113 @@
+---
+title: "Untitled"
+output: github_document
+---
+
+```{r}
+necessary <- c('ggplot2', "gridExtra", "dplyr")
+installed <- necessary %in% installed.packages()[,'Package']
+if (length(necessary[!installed]) >= 1)
+    install.packages(necessary[!installed])
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+```
+```{r}
+data(diamonds)
+?diamonds
+names(diamonds)
+
+```
+```{r}
+p1 <- ggplot(aes(x = x, y = price), data = diamonds) +
+  geom_point()
+
+p2 <- ggplot(aes(x = y, y = price), data = diamonds) +
+  geom_point()
+
+p3 <- ggplot(aes(x = z, y = price), data = diamonds) +
+  geom_point()
+
+grid.arrange(p1, p2, p3, ncol = 1)
+
+cor.test(diamonds$x, diamonds$price, method = "pearson")
+cor.test(diamonds$y, diamonds$price, method = "pearson")
+cor.test(diamonds$z, diamonds$price, method = "pearson")
+```
+```{r}
+ggplot(aes(x = depth, y = price), data = diamonds) +
+  geom_point(alpha = 1/100) +
+  scale_x_continuous(breaks = seq(43, 79, 2))
+
+cor.test(diamonds$depth, diamonds$price, method = "pearson")
+```
+
+```{r}
+ggplot(aes(x = carat, y = price), data = diamonds) +
+  geom_point() +
+  xlim(0.4, quantile(diamonds$carat, 0.99)) +
+  ylim(326, quantile(diamonds$price, 0.99))
+```
+```{r}
+diamonds$volume = diamonds$x * diamonds$y * diamonds$z
+ggplot(aes(x = volume, y = price), 
+       data = subset(diamonds, volume > 0 && volume < 800)) +
+  geom_point() +
+  geom_smooth(color = "red")
+
+count(diamonds, volume == 0)
+with(subset(diamonds, volume >0 & volume < 800), cor.test(volume, price, method = "pearson"))
+```
+```{r}
+diamonds.price_by_clarity <- diamonds %>%
+  group_by(clarity) %>%
+  summarise(
+    mean_price = mean(price),
+    median_price = median(price),
+    min_price = min(price),
+    max_price = max(price),
+    n = n()
+  )
+
+diamonds.price_by_color <- diamonds %>%
+  group_by(color) %>%
+  summarise(
+    mean_price = mean(price),
+    median_price = median(price),
+    min_price = min(price),
+    max_price = max(price),
+    n = n()
+  )
+
+diamonds.price_by_cut <- diamonds %>%
+  group_by(cut) %>%
+  summarise(
+    mean_price = mean(price),
+    median_price = median(price),
+    min_price = min(price),
+    max_price = max(price),
+    n = n()
+  )
+
+p1 <- ggplot(aes(x = clarity, y = mean_price), data = diamonds.price_by_clarity) +
+  geom_bar(stat="identity", width = 0.5)
+
+p2 <- ggplot(aes(x = color, y = mean_price), data = diamonds.price_by_color) +
+  geom_bar(stat="identity", width = 0.5)
+
+p3 <- ggplot(aes(x = cut, y = mean_price), data = diamonds.price_by_cut) +
+  geom_bar(stat="identity", width = 0.5)
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+```{r}
+```
+
+```{r}
+
+```
+
+
+
+
