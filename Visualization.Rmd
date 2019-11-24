@@ -27,7 +27,7 @@ output: github_document
 一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 ```{r}
 # 安装和加载软件包
-necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3", "tidyr")
+necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3", "tidyr", "reshape2")
 installed <- necessary %in% installed.packages()[,'Package']
 if (length(necessary[!installed]) >= 1)
     install.packages(necessary[!installed])
@@ -38,6 +38,7 @@ library(gridExtra)
 library(dplyr)
 library(alr3)
 library(tidyr)
+library(reshape2)
 ```
 
 
@@ -349,13 +350,48 @@ ggplot(aes(x = age, y = fc_median), data = pf.fc_by_age_gender) +
 # 将长格式转化为宽格式
 spread(subset(pf.fc_by_age_gender, select = c('gender', 'age', 'fc_median')), gender, fc_median)
 ```
+```{r}
+pf.fc_by_age_gender.wide <-
+    subset(pf.fc_by_age_gender[c('age', 'gender', 'fc_median')], !is.na(gender)) %>%
+    spread(gender, fc_median) %>%
+    mutate(ratio = male / female)
+head(pf.fc_by_age_gender.wide)
+```
 
-
+### 重塑数据
 ```{r, echo=FALSE}
+pf.fc_by_age_gender.wide <- dcast(pf.fc_by_age_gender, age ~ gender, value.var = "fc_median")
+head(pf.fc_by_age_gender.wide)
 ```
 
 ```{r, echo=FALSE}
+pf.fc_by_age_gender.wide_array = acast(pf.fc_by_age_gender, age ~ gender, value.var = "fc_median")
+head(pf.fc_by_age_gender.wide_array)
 ```
 
 ```{r, echo=FALSE}
+??nill
 ```
+
+### 比率图
+```{r}
+ggplot(aes(x = age, y = female / male), data = pf.fc_by_age_gender.wide) + 
+  geom_line() + 
+  geom_hline(yintercept = 1, alpha = 0.3, linetype = 6)
+```
+```{r}
+df_facebook$year_joined <-  floor(2014 - df_facebook$tenure / 365)
+summary(df_facebook$year_joined)
+table(df_facebook$year_joined)
+df_facebook$year_joined.bucket <-  cut(df_facebook$year_joined, breaks = c(2004, 2009, 2011, 2012, 2014))
+table(df_facebook$year_joined.bucket, useNA = "ifany")
+```
+
+```{r}
+ggplot(aes(x = age, y = female / male), data = pf.fc_by_age_gender.wide) + 
+  geom_line(color = year_joined.bucket) + 
+ggplot(aes(x = age, y = friend_count), 
+       data =subset(df_facebook, !is.na(year_joined.bucket)),  df_facebook) +
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = median)
+```
+
