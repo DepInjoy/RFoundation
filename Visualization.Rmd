@@ -24,9 +24,16 @@ output: github_document
 一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 ```{r}
 # 安装和加载软件包
+necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3")
+installed <- necessary %in% installed.packages()[,'Package']
+if (length(necessary[!installed]) >= 1)
+    install.packages(necessary[!installed])
+
 library(ggplot2)
 library(ggthemes)
 library(gridExtra)
+library(dplyr)
+library(alr3)
 ```
 
 
@@ -36,10 +43,12 @@ df_facebook <- read.csv("pseudo_facebook.tsv", sep = "\t")
 ```
 
 
-## 单一变量探索单一变量
 ```{r}
+# 统一主题设置
 theme_set(theme_minimal(12))
 ```
+
+## 单一变量探索单一变量
 
 
 ### 直方图
@@ -98,27 +107,28 @@ p3 <- p1 + scale_x_log10()
 grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
-```{r}
+
+```{r, echo = FALSE}
 # 统计量计算
 table(df_facebook$gender)
 by(df_facebook$friend_count, df_facebook$gender, summary)
 ```
 
-```{r}
+```{r, echo = FALSE}
 qplot(data = df_facebook, x = tenure/365, binwidth=0.25, 
       color=I("white"), fill = I("#2e7d32"),
       xlab = "Number of year using Facebook",
       ylab = "Number of users in sample") +
     scale_x_continuous(limits = c(0,7), breaks = seq(0, 7, 1))
 ```
-```{r}
+```{r, echo = FALSE}
 qplot(data = df_facebook, x = age, binwidth = 1,
         color=I("white"), fill = I("#2e7d32")) +
     scale_x_continuous(limits = c(10,113), breaks = seq(10, 113, 5))
 ```
 
 ### 频率多边形
-```{r}
+```{r, echo = FALSE}
 qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
       x = friend_count, binwidth = 25,
       geom = "freqpoly", color = gender,
@@ -126,7 +136,7 @@ qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
       ylab = "Number of user with responding friend count") +
     scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50))
 ```
-```{r}
+```{r, echo = FALSE}
 qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
       x = friend_count, binwidth = 25, y = ..count../sum(..count..),
       geom = "freqpoly", color = gender,
@@ -137,11 +147,188 @@ qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
 
 ### 箱线图
 ```{r}
-qplot(data = subset(df_facebook, !is.na(df_facebook$gender)), x = gender, y = friend_count, geom = "boxplot") +
+qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
+        x = gender, y = friend_count, geom = "boxplot") +
     coord_cartesian(ylim = c(0,250))
 ```
 
 ## 探索两个变量
+### 散点图
+```{r， echo = FALSE}
+#实现方式一
+qplot(data = df_facebook, x = age, y = friend_count)
 
+# 实现方式二
+# aes是包装函数
+# 添加透明度:geom_point(alpha = 1/20)
+ggplot(aes(x = age, y = friend_count), data = df_facebook) +
+#    geom_point(alpha = 1/20) +                 # 添加透明度
+    geom_jitter(alpha = 1/20) +                 # 添加透明度和抖动
+    xlim(13, 90)
+```
+- [coord_trans]https://ggplot2.tidyverse.org/reference/coord_trans.html
+
+```{r, echo = FALSE}
+ggplot(aes(x = age, y = friend_count), data = df_facebook) +
+    # 设置抖动最小高度为0，避免friend_count为0的开平方出现负数
+    geom_point(alpha = 1/20, position = position_jitter(h = 0)) +
+    xlim(13, 90) +
+    coord_trans(y = "sqrt")
+```
+
+### 将摘要和原始数据叠加
+```{r, echo = FALSE}
+ggplot(aes(x = age, y = friend_count), data = df_facebook) +
+    geom_jitter(alpha = 1/20, position = position_jitter(h = 0), color = "orange") +
+    coord_trans(y = "sqrt") +
+    # 绘制均值
+    geom_line(stat = "summary", fun.y = mean) +
+    # 绘制10%中位数
+    geom_line(stat = "summary", fun.y = quantile, fun.args = list(probs = .1), linetype = 2, color = "blue") +
+    # 绘制90%中位数
+    geom_line(stat = "summary", fun.y = quantile, fun.args = list(probs = .9), linetype = 2, color = "blue") +
+    # 绘制中位数
+    geom_line(stat = "summary", fun.y = quantile, fun.args = list(probs = .5), linetype = 2, color = "blue") +
+    # 切割X和Y轴进行重点关注数据的显示
+    coord_cartesian(xlim = c(13, 70), ylim = c(0, 1000))
+```
+
+### 条件均值
+- [dplyr简介](http://rstudio-pubs-static.s3.amazonaws.com/11068_8bc42d6df61341b2bed45e9a9a3bf9f4.html)
+- [dplyr教程第一部分](https://www.r-bloggers.com/hadley-wickhams-dplyr-tutorial-at-user-2014-part-1/)
+- [dplyr教程第一部分](https://www.r-bloggers.com/hadley-wickhams-dplyr-tutorial-at-user-2014-part-2/)
+- [R函数lapply、tapply和split](http://rollingyours.wordpress.com/2014/10/20/the-lapply-command-101/)
+
+
+```{r, echo=FALSE}
+# 实现方式一:
+age_groups <- group_by(df_facebook, age)
+df_facebook.fc_by_age <- summarise(age_groups,
+    friend_count_mean = mean(friend_count),
+    friend_count_median = median(friend_count),
+    n = n())
+# 排序
+df_facebook.fc_by_age = arrange(df_facebook.fc_by_age, age)
+head(df_facebook.fc_by_age)
+```
+```{r, echo=FALSE}
+# 实现方式二
+df_facebook.fc_by_age2 <- df_facebook %>% 
+    group_by(age) %>%
+    summarise(friend_count_mean = mean(friend_count),
+        friend_count_median = median(friend_count),
+        n = n()) %>%
+    arrange(age)
+    
+head(df_facebook.fc_by_age2)
+```
+
+### 相关系数
+```{r, echo=FALSE}
+#实现方式一
+cor.test(df_facebook$age, df_facebook$friend_count, method = "pearson")
+
+# 实现方式二:with语句
+with(df_facebook, cor.test(age, friend_count, method = "pearson"))
+```
+
+```{r, echo=FALSE}
+#子集相关性
+with(subset(df_facebook, df_facebook$age <=70), cor.test(age, friend_count, method = "pearson"))
+```
+
+
+```{r, echo=FALSE}
+
+ggplot(aes(x = www_likes_received, y = likes_received), data = df_facebook) +
+    geom_point() +
+    xlim(0, quantile(df_facebook$www_likes_received, 0.95)) +
+    ylim(0, quantile(df_facebook$likes_received, 0.95)) +
+    geom_smooth(method = "lm", color = "red")
+#计算相关系数
+with(df_facebook, cor.test(www_likes_received, likes_received, method = "pearson"))
+```
+
+### 研究数据集的相关性
+[应用线性回归:第三版](http://users.stat.umn.edu/~sandy/alr3ed/website/)
+```{r, echo=FALSE}
+?data(Mitchell)
+str(Mitchell)
+
+ggplot(aes(x =  Month, y = Temp), data = Mitchell) +
+    geom_point() +
+    # 坐标轴离散化
+    scale_x_discrete(limits = c(0, 203), breaks = seq(0, 203, 12)) +
+    # 设置坐标轴的名称
+    labs(x = "Month", y = "Temperature") +
+    # 切换显示比例呈现新的视角
+    coord_fixed(ratio = 0.8)
+
+cor.test(Mitchell$Month, Mitchell$Temp, method = "pearson")
+```
+
+```{r, echo=FALSE}
+ggplot(aes(x =  Month %% 12, y = Temp), data = Mitchell) +
+    geom_point() + 
+    scale_x_continuous(limits = c(0, 12), breaks = seq(0, 12, 1)) +
+    labs(x = "Month", y = "Temperature")
+```
+
+```{r, echo=FALSE}
+df_facebook$age_with_month <- df_facebook$age + (1 - df_facebook$dob_month / 12)
+PF.FC <- df_facebook %>%
+    group_by(age_with_month) %>%
+    summarise(FC_mean = mean(friend_count),
+              FC_median = median(friend_count),
+              n = n()) %>%
+    arrange(age_with_month)
+ggplot(aes(x = age_with_month, y = FC_mean), data = PF.FC) +
+    geom_point() +
+    geom_line(color = "red") +
+    scale_x_continuous(limits = c(13, 71)) + 
+    scale_y_continuous(limits = c(0, 450))
+```
+
+### 平滑条件均值
+```{r, echo=FALSE}
+p1 <- ggplot(aes(x = age_with_month, y = FC_mean), data = subset(PF.FC, PF.FC$age_with_month < 71)) +
+    geom_line(color = "red") +
+    geom_smooth()
+
+p2 <- ggplot(aes(x = age, y = friend_count_mean), data = subset(df_facebook.fc_by_age, age < 71)) +
+    geom_line(color = "red") +
+    geom_smooth()
+
+p3 <- ggplot(aes(x = round(age/5)*5, y = friend_count), data = subset(df_facebook, age < 71)) + 
+    geom_line(color = "red", fun.y = mean)
+
+grid.arrange(p1, p2, p3, ncol = 1)
+```
+
+
+```{r, echo=FALSE}
+```
+
+
+```{r, echo=FALSE}
+```
+
+
+```{r, echo=FALSE}
+```
+
+
+```{r, echo=FALSE}
+```
+
+
+```{r, echo=FALSE}
+```
+
+```{r, echo=FALSE}
+```
+
+```{r, echo=FALSE}
+```
 
 ## 探索多个变量
