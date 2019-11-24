@@ -2,6 +2,9 @@
 title: "R数据可视化进行探索性分析"
 output: github_document
 ---
+数据集
+- [Gapminder](https://www.gapminder.org/data/)
+
 # 数据简介
     该数据集来自于优达的纳米学位课程，在课程中优达已经声明该数据集是伪谷歌数据并非真实的。下面是我对课程的整理并会添加一下自己的理解，来辅助增强对知识的深入理解。
     
@@ -24,7 +27,7 @@ output: github_document
 一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 ```{r}
 # 安装和加载软件包
-necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3")
+necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3", "tidyr")
 installed <- necessary %in% installed.packages()[,'Package']
 if (length(necessary[!installed]) >= 1)
     install.packages(necessary[!installed])
@@ -34,6 +37,7 @@ library(ggthemes)
 library(gridExtra)
 library(dplyr)
 library(alr3)
+library(tidyr)
 ```
 
 
@@ -198,7 +202,7 @@ ggplot(aes(x = age, y = friend_count), data = df_facebook) +
 - [dplyr教程第一部分](https://www.r-bloggers.com/hadley-wickhams-dplyr-tutorial-at-user-2014-part-1/)
 - [dplyr教程第一部分](https://www.r-bloggers.com/hadley-wickhams-dplyr-tutorial-at-user-2014-part-2/)
 - [R函数lapply、tapply和split](http://rollingyours.wordpress.com/2014/10/20/the-lapply-command-101/)
-
+- [summarise()和group_by()的重复使用](https://stackoverflow.com/questions/21653295/dplyr-issues-when-using-group-bymultiple-variables)
 
 ```{r, echo=FALSE}
 # 实现方式一:
@@ -239,7 +243,6 @@ with(subset(df_facebook, df_facebook$age <=70), cor.test(age, friend_count, meth
 
 
 ```{r, echo=FALSE}
-
 ggplot(aes(x = www_likes_received, y = likes_received), data = df_facebook) +
     geom_point() +
     xlim(0, quantile(df_facebook$www_likes_received, 0.95)) +
@@ -300,35 +303,59 @@ p2 <- ggplot(aes(x = age, y = friend_count_mean), data = subset(df_facebook.fc_b
     geom_smooth()
 
 p3 <- ggplot(aes(x = round(age/5)*5, y = friend_count), data = subset(df_facebook, age < 71)) + 
-    geom_line(color = "red", fun.y = mean)
+    geom_line(color = "red", fun.y = mean, stat = "summary")
 
 grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
+[直方图VS柱状图](https://flowingdata.com/2014/02/27/how-to-read-histograms-and-use-them-in-r/)
 
-```{r, echo=FALSE}
-```
-
-
-```{r, echo=FALSE}
-```
-
-
-```{r, echo=FALSE}
-```
-
-
-```{r, echo=FALSE}
-```
-
-
-```{r, echo=FALSE}
-```
-
-```{r, echo=FALSE}
-```
-
-```{r, echo=FALSE}
-```
 
 ## 探索多个变量
+
+### 第三个定性变量
+
+```{r, echo=TRUE}
+ggplot(aes(x = gender, y = friend_count), data = df_facebook) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0, 500)) +
+  stat_summary(fun.y = mean, geom = "point", shape = 4, color = "blue")
+```
+
+```{r, echo=FALSE}
+ggplot(aes(x = age, y = friend_count), data = subset(df_facebook, !is.na(df_facebook$gender))) +
+  geom_line(aes(color = gender), stat = "summary", fun.y = median)
+```
+
+
+```{r, echo=FALSE}
+pf.fc_by_age_gender <- subset(df_facebook, !is.na(gender)) %>%
+  group_by(gender, age) %>%
+  summarise(
+        fc_mean = mean(friend_count),
+        fc_median = median(friend_count),
+        n = n()
+  )
+ggplot(aes(x = age, y = fc_median), data = pf.fc_by_age_gender) +
+  geom_line(aes(color = gender))
+```
+
+### 长宽格式转化
+- [reshape2入门](https://seananderson.ca/2013/10/19/reshape/)
+- [宽格式和长格式之间的转换](http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/)
+- [融合数据框](https://www.r-bloggers.com/melt/)
+
+```{r, echo=FALSE}
+# 将长格式转化为宽格式
+spread(subset(pf.fc_by_age_gender, select = c('gender', 'age', 'fc_median')), gender, fc_median)
+```
+
+
+```{r, echo=FALSE}
+```
+
+```{r, echo=FALSE}
+```
+
+```{r, echo=FALSE}
+```
