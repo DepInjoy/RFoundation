@@ -1,0 +1,35 @@
+---
+title: "R:线性回归分布"
+output: github_document
+---
+
+##一元线性回归分析
+
+```{r}
+
+height=c(171,175,159,155,152,158,154,164,168,166,159,164)
+weight=c(57,64,41,38,35,44,41,51,57,49,47,46)
+
+# 一元线性回归分析
+a=lm(weight~1+height)
+
+# Residuals 		残差的最小值点、四分之一分位点、中位数点、四分之三分位点、最大值点
+# Coefficients
+#	Estimate 		回归方程参数估计
+#	Std. Error 		回归参数标准差
+#	t value		t值
+#	Pr(>|t|)		P值，越小合理程度越高
+#     ***			显著性标记，*越多越显著，无则表示不显著
+# Multiple R-squared	R^2，越接近于1越优
+# F-statistic		F检验
+summary(a)
+point<-data.frame(height=185)
+
+# interal
+#	prediction:		求预测点的值并给出相应的预测区间
+# level			置信区间
+predict(a,point,interal="prediction",level=0.95)
+
+```
+
+
