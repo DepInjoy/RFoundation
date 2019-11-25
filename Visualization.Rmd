@@ -45,6 +45,7 @@ library(reshape2)
 ```{r}
 # 数据加载
 df_facebook <- read.csv("pseudo_facebook.tsv", sep = "\t")
+str(df_facebook)
 ```
 
 
@@ -58,45 +59,46 @@ theme_set(theme_minimal(12))
 
 ### 直方图
 
-```{r}
+```{r, echo=FLASE}
 #直方图绘制方式1
 qplot(data = df_facebook, x = dob_day, color = I("white"), fill = I("#2e7d32")) +
     scale_x_continuous(breaks = 1:31)
 ```
 
-```{r}
+```{r, echo=FALSE}
 #直方图绘制方式1
 ggplot(aes(x = dob_day), data = df_facebook) +
     geom_histogram(binwidth = 1, color = "white", fill = "#2e7d32") +
     scale_x_continuous(breaks =  1:31)
 ```
 ## 分面
-```{r}
+```{r, echo=FALSE}
 qplot(data = df_facebook, x = dob_day) +
     scale_x_continuous(breaks = 1:31) +
     facet_wrap(~dob_month, ncol = 4)
 ```
 ## 限制轴
 
-```{r}
+```{r, echo=FALSE}
 qplot(data = df_facebook, x = friend_count, xlim = c(0, 1000))
 ```
 
-```{r}
+```{r，echo=FALSE}
 # 添加图层,breaks设置start, end,step来调整组宽
 qplot(data = df_facebook, x = friend_count, binwidth = 25) +
     scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50))
 ```
   
 ### 忽略NA
-```{r}
+
+```{r, echo=FALSE}
 qplot(data = subset(df_facebook, !is.na(df_facebook$gender)), x = friend_count, binwidth = 25) +
     scale_x_continuous(limits = c(0,1000), breaks = seq(0, 1000, 50)) +
     facet_wrap(~gender)
 ```
 
 ### 数据转换
-```{r}
+```{r, echo=FALSE}
 library(gridExtra)
 # 通过包裹器进行数据变换
 p1 <- qplot(data = df_facebook, x = friend_count)
@@ -104,7 +106,7 @@ p2 <- qplot(data =  df_facebook, x = sqrt(friend_count))
 p3 <- qplot(data =  df_facebook, x = log10(friend_count))
 grid.arrange(p1, p2, p3, ncol = 1)
 ```
-```{r}
+```{r, echo=FALSE}
 # 通过添加图层实现，该方法同样适用于qplot
 p1 <- ggplot(data = df_facebook, aes(x = friend_count)) + geom_histogram()
 p2 <- p1 + scale_x_sqrt()
@@ -151,7 +153,7 @@ qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
 ```
 
 ### 箱线图
-```{r}
+```{r, echo=FALSE}
 qplot(data = subset(df_facebook, !is.na(df_facebook$gender)),
         x = gender, y = friend_count, geom = "boxplot") +
     coord_cartesian(ylim = c(0,250))
@@ -360,38 +362,157 @@ head(pf.fc_by_age_gender.wide)
 
 ### 重塑数据
 ```{r, echo=FALSE}
-pf.fc_by_age_gender.wide <- dcast(pf.fc_by_age_gender, age ~ gender, value.var = "fc_median")
+pf.fc_by_age_gender.wide <- dcast(pf.fc_by_age_gender, age ~ gender, 
+        value.var = "fc_median")
 head(pf.fc_by_age_gender.wide)
 ```
 
 ```{r, echo=FALSE}
-pf.fc_by_age_gender.wide_array = acast(pf.fc_by_age_gender, age ~ gender, value.var = "fc_median")
+pf.fc_by_age_gender.wide_array = acast(pf.fc_by_age_gender, age ~ gender, 
+        value.var = "fc_median")
 head(pf.fc_by_age_gender.wide_array)
 ```
 
-```{r, echo=FALSE}
-??nill
-```
-
 ### 比率图
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = age, y = female / male), data = pf.fc_by_age_gender.wide) + 
   geom_line() + 
   geom_hline(yintercept = 1, alpha = 0.3, linetype = 6)
 ```
-```{r}
+```{r, echo=FALSE}
 df_facebook$year_joined <-  floor(2014 - df_facebook$tenure / 365)
 summary(df_facebook$year_joined)
 table(df_facebook$year_joined)
-df_facebook$year_joined.bucket <-  cut(df_facebook$year_joined, breaks = c(2004, 2009, 2011, 2012, 2014))
+df_facebook$year_joined.bucket <- cut(df_facebook$year_joined, 
+      breaks = c(2004, 2009, 2011, 2012, 2014))
 table(df_facebook$year_joined.bucket, useNA = "ifany")
 ```
 
-```{r}
-ggplot(aes(x = age, y = female / male), data = pf.fc_by_age_gender.wide) + 
-  geom_line(color = year_joined.bucket) + 
+```{r, echo=FALSE}
 ggplot(aes(x = age, y = friend_count), 
-       data =subset(df_facebook, !is.na(year_joined.bucket)),  df_facebook) +
-  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = median)
+       data =subset(df_facebook, !is.na(year_joined.bucket))) + 
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = median) +
+  geom_line(stat = "summary", fun.y = median, linetype = 2)
 ```
+### 好友率
+```{r, echo=FALSE}
+with(subset(df_facebook, tenure >= 1), summary(friend_count / tenure))
+```
+
+### 申请好友数
+```{r, echo=FALSE}
+ggplot(aes(x = tenure, y = friendships_initiated / tenure), 
+       data = subset(df_facebook, tenure >= 1)) +
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = mean)
+```
+
+### 偏差方差折衷
+- [理解偏差-方差折衷(Bias-Variance Tradeof)](http://scott.fortmann-roe.com/docs/BiasVariance.html)
+```{r, echo=FALSE}
+p1 <- ggplot(aes(x = tenure, y = friendships_initiated / tenure), 
+       data = subset(df_facebook, tenure >= 1)) +
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = mean)
+
+p2 <- ggplot(aes(x = 7*round(tenure/7), y = friendships_initiated / tenure), 
+       data = subset(df_facebook, tenure >= 1)) +
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = mean)
+
+p3 <- ggplot(aes(x = 30*round(tenure/30), y = friendships_initiated / tenure), 
+       data = subset(df_facebook, tenure >= 1)) +
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = mean)
+
+p4 <- ggplot(aes(x = 90*round(tenure/90), y = friendships_initiated / tenure), 
+       data = subset(df_facebook, tenure >= 1)) +
+  geom_line(aes(color = year_joined.bucket), stat = "summary", fun.y = mean)
+
+grid.arrange(p1, p2, p3, p4, ncol = 1)
+```
+
+```{r, echo=FALSE}
+# geom_smooth会选择合适的统计方法进行计算
+ggplot(aes(x = tenure, y = friendships_initiated / tenure), 
+       data = subset(df_facebook, tenure >= 1)) +
+  geom_smooth(aes(color = year_joined.bucket))
+```
+
+酸奶数据集
+[贝叶斯统计学与营销](http://www.perossi.org/home/bsm-1)引用的有关酸奶数据集的论文原稿由 Kim、Jaehwan、Greg M. Allenby 和 Peter E. Rossi 撰写。“构建多样性消费者需求模型”，《营销科学》21.3 (2002)：第 229 至 250 页。
+[消费者需求的面板数据离散选择模型](http://www.nuff.ox.ac.uk/Economics/papers/2013/Panel%20Data%20Demand%20-%20June%2020,%202013.pdf)
+
+```{r, echo=FALSE}
+yo <- read.csv("yogurt.csv")
+str(yo)
+#将id从int转换为fatcor
+yo$id <- factor(yo$id)
+str(yo)
+```
+
+```{r, echo=FALSE}
+#对于非常离散的数据，设置binwidth错过一些离散的点，是常用的有偏差的模型
+p1 <- ggplot(aes(x = price), data = yo) +
+  geom_histogram()
+
+p2 <- ggplot(aes(x = price), data = yo) +
+  geom_histogram(binwidth = 10)
+
+grid.arrange(p1, p2, ncol = 1)
+```
+```{r}
+#通过统计量来观察price的价格
+summary(yo)
+```
+
+```{r}
+unique(yo$price)
+```
+
+```{r}
+table(yo$price)
+```
+```{r}
+names(yo)
+```
+### 购买数量
+```{r}
+# 内部数据重组
+yo <- transform(yo, all.purchases = (strawberry + blueberry + pina.colada + plain + mixed.berry))
+ggplot(aes(x = all.purchases), data = yo) +
+  geom_histogram(binwidth = 1)
+```
+
+```{r}
+ggplot(aes(x = time, y = price), data = yo) +
+  geom_jitter(alpha = 1/4, fill = I("orange"), shape = 21)
+```
+### 采样值观测
+[ QuickR 图形参数:下滚☞下方](https://www.statmethods.net/advgraphs/parameters.html)
+```{r}
+set.seed(4230)
+sample.ids = sample(levels(yo$id), 16)
+
+ggplot(aes(x = time, y = price), data = subset(yo, id %in% sample.ids)) +
+  facet_wrap(~id) +
+  geom_line() +
+  geom_point(aes(size = all.purchases), pch = 1)
+```
+
+```{r}
+
+```
+```{r}
+
+```
+```{r}
+
+```
+```{r}
+
+```
+```{r}
+
+```
+```{r}
+
+```
+
 
