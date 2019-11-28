@@ -27,7 +27,7 @@ output: github_document
 一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 ```{r}
 # 安装和加载软件包
-necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3", "tidyr", "reshape2")
+necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3", "tidyr", "reshape2", "GGally")
 installed <- necessary %in% installed.packages()[,'Package']
 if (length(necessary[!installed]) >= 1)
     install.packages(necessary[!installed])
@@ -39,6 +39,7 @@ library(dplyr)
 library(alr3)
 library(tidyr)
 library(reshape2)
+library(GGally)
 ```
 
 
@@ -487,7 +488,7 @@ ggplot(aes(x = time, y = price), data = yo) +
 ### 采样值观测
 [ QuickR 图形参数:下滚☞下方](https://www.statmethods.net/advgraphs/parameters.html)
 ```{r}
-set.seed(4230)
+set.seed(5760)
 sample.ids = sample(levels(yo$id), 16)
 
 ggplot(aes(x = time, y = price), data = subset(yo, id %in% sample.ids)) +
@@ -497,16 +498,38 @@ ggplot(aes(x = time, y = price), data = subset(yo, id %in% sample.ids)) +
 ```
 
 ```{r}
+set.seed(4230)
+sample.ids = sample(levels(yo$id), 16)
+
+ggplot(aes(x = time, y = price), data = subset(yo, id %in% sample.ids)) +
+  facet_wrap(~id) +
+  geom_line() +
+  geom_point(aes(size = all.purchases), pch = 1)
 
 ```
-```{r}
-
+### 散点图矩阵
+- 标签出现在对角线上:`axisLabels = 'internal'`
+```{r, echo=FALSE}
+set.seed(1836)
+df_facebook_subset = df_facebook[, c(2:15)]
+ggpairs(df_facebook_subset[sample.int(nrow(df_facebook_subset), 1000), ], axisLabels = 'internal')
 ```
-```{r}
-
+```{r, echo=FALSE}
+nci <- read.table("nci.tsv")
+colnames(nci) <- c(1:64)
 ```
-```{r}
 
+### 热图
+[R融合数据框](https://www.r-bloggers.com/melt/)
+```{r}
+# 将数据融合成长格式
+nci.long.sample <- melt(as.matrix(nci[1:200, ]))
+names(nci.long.sample) <- c("gene", "case", "value")
+
+ggplot(aes(x = gene, y = case, fill = value), data = nci.long.sample) +
+    geom_tile() +
+    # 设置灰度梯度
+    scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100))
 ```
 ```{r}
 
