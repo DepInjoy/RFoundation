@@ -25,7 +25,7 @@ output: github_document
 * www_likes_received
 
 一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
-```{r}
+```{r warning=FALSE}
 # 安装和加载软件包
 necessary <- c('ggplot2', 'ggthemes', "gridExtra", "dplyr", "alr3", "tidyr", "reshape2", "GGally")
 installed <- necessary %in% installed.packages()[,'Package']
@@ -346,8 +346,6 @@ ggplot(aes(x = age, y = fc_median), data = pf.fc_by_age_gender) +
 
 ### 长宽格式转化
 - [reshape2入门](https://seananderson.ca/2013/10/19/reshape/)
-- [宽格式和长格式之间的转换](http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/)
-- [融合数据框](https://www.r-bloggers.com/melt/)
 
 ```{r, echo=FALSE}
 # 将长格式转化为宽格式

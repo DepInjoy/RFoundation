@@ -3,8 +3,9 @@ title: "Untitled"
 output: github_document
 ---
 
-```{r}
-necessary <- c('ggplot2', "gridExtra", "dplyr")
+```{r warning=FALSE}
+necessary <- c('ggplot2', "gridExtra", "dplyr", "scale", "memisc",
+               "car", "MASS", 'bitops', 'RCurl')
 installed <- necessary %in% installed.packages()[,'Package']
 if (length(necessary[!installed]) >= 1)
     install.packages(necessary[!installed])
@@ -16,7 +17,6 @@ library(dplyr)
 data(diamonds)
 ?diamonds
 names(diamonds)
-
 ```
 ```{r}
 p1 <- ggplot(aes(x = x, y = price), data = diamonds) +
@@ -179,5 +179,154 @@ ggplot(aes(x = cut, y = price/carat), data = diamonds) +
   scale_color_brewer(type = 'div')
 ```
 
+### 钻石和价格预测
+```{r warning=FALSE}
+ggplot(aes(x = carat, y = price), data = diamonds) +
+  geom_point(fill = I("#ff9f43"), color = I("black"), shape = 21) +
+  xlim(0, quantile(diamonds$carat, 0.99)) +
+  ylim(0, quantile(diamonds$price, 0.99)) +
+  geom_smooth(method = "lm")
+```
+```{r}
+set.seed(20022012)
+diamond_samp <- diamonds[sample(1:length(diamonds$price), 10000), ]
+```
 
+```{r warning=FALSE, message=FALSE}
+library(GGally)
+ggpairs(diamond_samp,
+  lower = list(continuous = wrap("points", shape = I('.'))),
+  upper = list(combo = wrap("box", outlier.shape = I('.'))))
+```
+### 对钻石的需求
+[对数变换](https://www.r-statistics.com/2013/05/log-transformations-for-skewed-and-wide-distributions-from-practical-data-science-with-r/)
+```{r warning=FALSE, message=FALSE}
+# 对价格取log10的分布更加符合正态分布的钟形曲线，甚至可以看到一些双峰的形态，这一点比较符合对钻石买家分为穷人买家和富人买家的分类推测。
+plot1 <- qplot(x = price, data = diamonds, binwidth = 100) + 
+  ggtitle('Price')
+
+plot2 <- qplot(x = price, data = diamonds, binwidth = 0.01) +
+  scale_x_log10() +
+  ggtitle('Price (log10)')
+
+grid.arrange(plot1, plot2, ncol = 2)
+```
+```{r}
+qplot(x = price, data = diamonds) +
+  scale_x_log10() +
+  ggtitle('Price (log10)') +
+  facet_wrap(~cut, scales = "free_y")
+```
+### carat的立方根和价格之间的关系
+[函数的基本结构](https://www.youtube.com/watch?v=Z1wB1rHAYzQ&list=PLOU2XLYxmsIK9qQfztXeybpHvru-TrqAP)
+[scale_color_brewer](https://ggplot2.tidyverse.org/reference/scale_brewer.html)
+[ColorBrewer 调色板和安全色](http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/#palettes-color-brewer)
+[Legends](http://www.cookbook-r.com/Graphs/Legends_(ggplot2)/)
+```{r}
+# 需要防止过度绘制
+head(sort(table(diamonds$carat), decreasing = T))
+head(sort(table(diamonds$price), decreasing = T))
+```
+
+```{r warning=FALSE}
+# 立方根转换函数
+library(scales)
+
+cuberoot_trans = function() trans_new("cuberoot", 
+      transform = function(x) x^(1/3),
+      inverse = function(x) x^3)
+
+ggplot(aes(x = carat, y = price), data = diamonds) + 
+  geom_point(aes(color = clarity), alpha = 0.5, 
+        position = position_jitter(h = 0), size = 0.75) +
+  scale_color_brewer(type = "div",
+        guide = guide_legend(title = 'Clarity', reverse = T,
+        override.aes = list(alpha = 1, size = 2))) +
+  scale_x_continuous(trans = cuberoot_trans(), limits = c(0.2, 3),
+                     breaks = c(0.2, 0.5, 1, 2, 3)) + 
+  scale_y_continuous(trans = log10_trans(), limits = c(350, 15000),
+                     breaks = c(350, 1000, 5000, 10000, 15000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat and Clarity')
+```
+
+```{r}
+ggplot(aes(x = carat, y = price), data = diamonds) + 
+  geom_point(aes(color = cut), alpha = 0.5, 
+             position = position_jitter(h = 0), size = 0.75) +
+  scale_color_brewer(type = "div",
+        guide = guide_legend(title = 'Cut', reverse = T,
+        override.aes = list(alpha = 1, size = 2))) +
+  scale_x_continuous(trans = cuberoot_trans(), limits = c(0.2, 3),
+                     breaks = c(0.2, 0.5, 1, 2, 3)) + 
+  scale_y_continuous(trans = log10_trans(), limits = c(350, 15000),
+                     breaks = c(350, 1000, 5000, 10000, 15000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat and Cut')
+```
+```{r}
+ggplot(aes(x = carat, y = price, color = color), data = diamonds) + 
+  geom_point(alpha = 0.5, size = 1, position = 'jitter') +
+  scale_color_brewer(type = 'div',
+      guide = guide_legend(title = 'Color',
+        override.aes = list(alpha = 1, size = 2))) +  
+  scale_x_continuous(trans = cuberoot_trans(), limits = c(0.2, 3),
+                     breaks = c(0.2, 0.5, 1, 2, 3)) + 
+  scale_y_continuous(trans = log10_trans(), limits = c(350, 15000),
+                     breaks = c(350, 1000, 5000, 10000, 15000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat and Color')
+```
+### 构建线性模型
+
+[R 中的线性模型和运算符](https://data.princeton.edu/r/linearmodels)
+线性回归的假设
+  - [ IID 假设即数据集中有大量重复的观测值](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)
+  
+- [模型问题](https://classroom.udacity.com/nanodegrees/nd002-cn-advanced-vip/parts/75eeccde-a56c-4cb8-b0f7-d837ac524435/modules/6d4d3e12-5a35-46e8-a597-60258900acae/lessons/755209509/concepts/8624987670923)
+```{r warning=FALSE}
+library(memisc)
+m1 <- lm(I(log(price)) ~ I(carat^(1/3)), data = diamonds)
+m2 <- update(m1, ~ . + carat)
+m3 <- update(m2, ~ . + cut)
+m4 <- update(m3, ~ . + color)
+m5 <- update(m4, ~ . + clarity)
+mtable(m1, m2, m3, m4, m5)
+```
+### 获取更大的数据集
+```{r}
+library('bitops')
+library('RCurl')
+
+diamondsurl = getBinaryURL("https://raw.github.com/solomonm/diamonds-data/master/BigDiamonds.Rda")
+diamondsbig <- load(rawConnection(diamondsurl)) #load("BigDiamonds.Rda")
+```
+```{r}
+m1 <- lm(I(log(price)) ~ I(carat^(1/3)),
+         data = subset(diamondsbig, price < 10000 & cert == "GIA"))
+m2 <- update(m1, ~ . + carat)
+m3 <- update(m2, ~ . + cut)
+m4 <- update(m3, ~ . + color)
+m5 <- update(m4, ~ . + clarity)
+mtable(m1, m2, m3, m4, m5)
+```
+### 做预测
+- [置信区间](https://en.wikipedia.org/wiki/Confidence_interval)
+- [用R分析你的Facebook社交网络](https://blog.revolutionanalytics.com/2013/11/how-to-analyze-you-facebook-friends-network-with-r.html)
+```{r}
+thisDiamond = data.frame(carat = 1.00, cut = "V.Good",
+                         color = "I", clarity="VS1")
+modelEstimate = predict(m5, newdata = thisDiamond,
+                        interval="prediction", level = .95)
+modelEstimate
+```
+
+```{r}
+dat = data.frame(m4$model, m4$residuals)
+
+with(dat, sd(m4.residuals))
+
+with(subset(dat, carat > .9 & carat < 1.1), sd(m4.residuals))
+
+dat$resid <- as.numeric(dat$m4.residuals)
+ggplot(aes(y = resid, x = round(carat, 2)), data = dat) +
+  geom_line(stat = "summary", fun.y = sd)
+```
 
