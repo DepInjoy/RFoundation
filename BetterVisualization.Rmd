@@ -1,0 +1,18 @@
+---
+title: "Untitled"
+output: github_document
+---
+
+[Gapminder上的可视化案例](https://www.gapminder.org/tools/#$locale$id=en;&chart-type=bubbles)
+[Hans Rosling的“200个国家、200年、4分钟”演讲](https://www.youtube.com/watch?v=jbkSRLYSojo)
+[Data Visualization: Rules for Encoding Values in Graph](https://www.perceptualedge.com/articles/b-eye/encoding_values_in_graph.pdf)
+[陡度图1](https://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0003nk)
+[陡度图2](https://charliepark.org/slopegraphs/)
+[视觉编码的原则](http://www.perceptualedge.com/articles/b-eye/encoding_values_in_graph.pdf)
+
+视觉编码的排序问题
+[Cleveland 和 McGill 撰写的图形认知论文](https://web.cs.dal.ca/~sbrooks/csci4166-6406/seminars/readings/Cleveland_GraphicalPerception_Science85.pdf)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
