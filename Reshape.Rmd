@@ -1,0 +1,115 @@
+---
+title: "数据重塑"
+output: github_document
+---
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+
+data(diamonds)
+# 选取钻石数据集的前1至5行部分数据进行练习
+diamonds_subset = diamonds[c(1:5), c("cut", "color", "clarity", "carat", "price", "depth")]
+```
+
+```{r}
+str(diamonds_subset)
+```
+
+### 长表格和宽表格转换
+
+#### 实现方式一:(gether-spread)
+
+##### 将宽表格转换为长表格(gather)
+```{r}
+diamonds_subset.long2 <-  gather(diamonds_subset, key = "varName", value = "varValue", 
+                                 carat:depth, factor_key = TRUE)
+diamonds_subset.long2
+```
+
+- **排序**
+```{r}
+# sort
+diamonds_subset.long2.sorted <- diamonds_subset.long2[order(diamonds_subset.long2$color,
+            diamonds_subset.long2$cut, diamonds_subset.long2$clarity), ]
+diamonds_subset.long2.sorted
+```
+
+- **重命名**
+```{r}
+# Rename the factor levels of the variable column
+levels(diamonds_subset.long2$cut)[levels(diamonds_subset.long2$cut) == "Ideal"] <- "Best"
+levels(diamonds_subset.long2$cut)[levels(diamonds_subset.long2$cut) == "Premium"] <- "Better"
+diamonds_subset.long2
+```
+##### 将长表格转换为宽表格(spread)
+```{r}
+diamonds_subset.wide.spread <- spread(diamonds_subset.long2, "varName", "varValue")
+diamonds_subset.wide.spread
+```
+
+- **重命名**
+```{r}
+names(diamonds_subset.wide.spread)[names(diamonds_subset.wide.spread) == "cut"] <- "Cut"
+diamonds_subset.wide.spread
+```
+
+
+
+#### 实现方式二:melt-cast
+
+##### 将宽表格转化为长表格(melt)
+melt实现将数重构为每个测量变量独占一行，每行带有唯一确定这个测量所需要的标识符变量。
+
+```{r}
+diamonds_subset.long.melt <- melt(diamonds_subset)
+diamonds_subset.long.melt
+```
+
+```{r}
+diamonds_subset.long.melt2 <- melt(diamonds_subset, id.vars = c("cut", "color", "clarity"),
+                                  measure.vars = c("price", "carat"),
+                                  variable.name = "condition",
+                                  value.name = "measurement")
+diamonds_subset.long.melt2
+```
+
+- **排序**
+```{r}
+diamonds_subset.long.melt2.sorted <- diamonds_subset.long.melt2[
+                order(diamonds_subset.long.melt2$cut,
+                diamonds_subset.long.melt2$color), ]
+diamonds_subset.long.melt2.sorted
+```
+- **Factor Level重命名**
+```{r}
+levels(diamonds_subset.long.melt2.sorted$cut)[levels(diamonds_subset.long.melt2.sorted$cut) == "Good"] <- "Best"
+diamonds_subset.long.melt2.sorted
+```
+
+##### 将长表格转化为宽表格(cast)
+cast可以实现将被转化为长表格的数据还原为宽表格，保存为DataFrame格式,acast保存为array格式。
+
+```{r}
+dcast(diamonds_subset.long.melt, cut + color + clarity ~ variable, value.var = "value")
+```
+
+```{r}
+# Keep cut, color and clarity as same
+# condition:    新列的名称
+# measurement:  新列的数值
+diamonds_subset.wide.dcast <-
+    dcast(diamonds_subset.long.melt2, cut + color + clarity ~ condition, value.var =  "measurement")
+diamonds_subset.wide.dcast
+```
+
+- **重命名**
+
+```{r}
+names(diamonds_subset.wide.dcast)[names(diamonds_subset.wide.dcast) == "cut"] <- "Cut"
+levels(diamonds_subset.wide.dcast$Cut)[levels(diamonds_subset.wide.dcast$Cut) == "Good"] <- "Best"
+diamonds_subset.wide.dcast
+```
+
+
