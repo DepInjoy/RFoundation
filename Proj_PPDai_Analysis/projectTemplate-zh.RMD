@@ -1,26 +1,68 @@
 TITLE by YOUR_NAME_HERE
 ========================================================
-
+https://www.jianshu.com/p/4804a65a4e12
+https://www.jianshu.com/p/b2eca8a450cf
 ```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
-# 加载你最终使用的所有组件
-# 在这个代码块的分析中。
-
-# 注意，在这个代码块中，将参数 "echo" 设为假。
-# This prevents the code from displaying in the knitted HTML output.这可以避免代码混入 HTML 输出显示。
-# 应当在文件中，对所有代码块设为 echo=FALSE 。
-
 library(ggplot2)
+library(plyr)
 ```
 
-```{r echo=FALSE, Load_the_Data}
+```{r echo=FALSE, Load_the_Data, message=FALSE, warning=FALSE}
 # 加载数据
+lc <- read.csv("ppdai/LC.csv", fileEncoding = "utf-8")
+lp <- read.csv("ppdai/LP.csv", fileEncoding = "utf-8")
+lcis <- read.csv("ppdai/LCIS.csv", fileEncoding = "utf-8")
+```
+# 数据评估
+```{r}
+str(lc)
+```
+
+
+# 数据清洗
+```{r}
 
 ```
 
+```{r, echo=FALSE}
+#参考https://stackoverflow.com/questions/7531868/how-to-rename-a-single-column-in-a-data-frame/16490387#16490387
+# 将中文的列表名更改为英文以避免编码问题
+lc <- rename(lc, c("性别" = "sex", "年龄" = "age"))
+```
+
+# 数据探索
 # 单变量绘图选择
+用户指标分析
+- 用户性别分布
+- 用户年龄分布
+- 借款次数
+- 借款类型
+- 借款金额
+- 借款利率分布
+- 信用评级
+- 历史正常还款次数
+- 历史逾期还款次数
+- 违约率(历史逾期还款期数/历史成功借款次数)
 ```{r echo=FALSE, Univariate_Plots}
-
+ggplot(aes(x = sex), data = lc) +
+  geom_histogram(stat = "count") +
+  labs(x = "性别", y = "人数")
 ```
+```{r}
+unique(lc$age)
+```
+
+```{r}
+age_bins = c(0, 18, 24, 30, 45, 60)
+lc$age.group <- cut(lc$age, age_bins)
+```
+```{r}
+ggplot(aes(x = age.group), data = lc) +
+  geom_histogram(stat = "count") +
+  scale_y_log10()
+```
+
+
 
 # 单变量分析
 
@@ -29,6 +71,22 @@ library(ggplot2)
 ### 你的数据集内感兴趣的主要特性有哪些？
 
 ### 你认为数据集内哪些其他特征可以帮助你探索兴趣特点？
+用户指标分析
+- 用户性别分布
+- 用户年龄分布
+- 借款次数
+- 借款类型
+- 借款金额
+- 借款利率分布
+- 信用评级
+- 历史正常还款次数
+- 历史逾期还款次数
+- 违约率(历史逾期还款期数/历史成功借款次数)
+获客指标
+- 日新增用户数(首标人数)
+变现
+- 每天借款金额和还款金额，还款率
+- 贷款利率和违约率之间的关系
 
 ### 根据数据集内已有变量，你是否创建了任何新变量？
 
