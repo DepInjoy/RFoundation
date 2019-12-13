@@ -104,8 +104,9 @@ grid.arrange(p1, p2, p3, ncol = 3)
 ```{r}
 # 绘图用 log(price) 作为 x 轴，以适应数据的正偏斜
 ggplot(aes(x = log(price)), data = diamonds) +
-  geom_histogram() +
-  facet_wrap(~color)
+    geom_histogram() +
+    facet_wrap(~color) +
+    scale_color_brewer(type = "qual")
 ```
 
 ```{r}

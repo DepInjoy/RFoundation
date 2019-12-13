@@ -8,21 +8,21 @@ output: github_document
 # 数据简介
     该数据集来自于优达的纳米学位课程，在课程中优达已经声明该数据集是伪谷歌数据并非真实的。下面是我对课程的整理并会添加一下自己的理解，来辅助增强对知识的深入理解。
     
-* userid
-* age
-* dob_day:用户生日，日期
-* dob_year:用户生日，年             
-* dob_month:用户生日,月份
-* gender:性别
-* tenure:使用时长
-* friend_count:好友数量
-* friendships_initiated:交友请求
-* likes
-* likes_received
-* mobile_likes
-* mobile_likes_received
-* www_likes
-* www_likes_received
+- userid
+- age
+- dob_day:用户生日，日期
+- dob_year:用户生日，年             
+- dob_month:用户生日,月份
+- gender:性别
+- tenure:使用时长
+- friend_count:好友数量
+- friendships_initiated:交友请求
+- likes
+- likes_received
+- mobile_likes
+- mobile_likes_received
+- www_likes
+- www_likes_received
 
 一个页面绘制多个图片 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 ```{r warning=FALSE}
@@ -60,27 +60,27 @@ theme_set(theme_minimal(12))
 
 ### 直方图
 
-```{r, echo=FLASE}
+```{r echo=FLASE warning = FALSE, class.warning = FALSE}
 #直方图绘制方式1
 qplot(data = df_facebook, x = dob_day, color = I("white"), fill = I("#2e7d32")) +
     scale_x_continuous(breaks = 1:31)
 ```
 
-```{r, echo=FALSE}
+```{r echo=FALSE}
 #直方图绘制方式1
 ggplot(aes(x = dob_day), data = df_facebook) +
     geom_histogram(binwidth = 1, color = "white", fill = "#2e7d32") +
     scale_x_continuous(breaks =  1:31)
 ```
 ## 分面
-```{r, echo=FALSE}
+```{r echo=FALSE}
 qplot(data = df_facebook, x = dob_day) +
     scale_x_continuous(breaks = 1:31) +
     facet_wrap(~dob_month, ncol = 4)
 ```
 ## 限制轴
 
-```{r, echo=FALSE}
+```{r echo=FALSE}
 qplot(data = df_facebook, x = friend_count, xlim = c(0, 1000))
 ```
 
@@ -518,7 +518,7 @@ colnames(nci) <- c(1:64)
 ```
 
 ### 热图
-[R融合数据框](https://www.r-bloggers.com/melt/)
+
 ```{r}
 # 将数据融合成长格式
 nci.long.sample <- melt(as.matrix(nci[1:200, ]))
@@ -533,7 +533,6 @@ ggplot(aes(x = gene, y = case, fill = value), data = nci.long.sample) +
 
 ```
 ```{r}
-
 ```
 
 
