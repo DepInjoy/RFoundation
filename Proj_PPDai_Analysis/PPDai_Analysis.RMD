@@ -1,14 +1,18 @@
-TITLE by YOUR_NAME_HERE
+---
+拍拍贷用户数据探索
 ========================================================
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
 library(ggplot2)
 library(gridExtra)
 library(dplyr)
-```
-```{r echo=FALSE, message=FALSE, warning=FALSE Set_theme}
-# 设置统一的主题
-theme_set(theme_minimal(12))
+# 设置数据显示非科学计数法
+options(scipen=3)
 ```
 
 ```{r echo=FALSE, Load_the_Data}
@@ -23,86 +27,180 @@ str(lc)
 ```{r warning=FALSE message = FALSE}
 str(lp)
 ```
-```{r warning=FALSE}
+```{r warning=FALSE, message=FALSE}
 str(lcis)
 ```
+## 数据评估和清洗
 ```{r}
-length(unique(lcis$ListingId))
-length(unique(lc$ListingId))
-length(unique(lp$ListingId))
+# 观察是否有重复的数据，无重复数据，无须处理
+sum(duplicated(lc$ListingId))
 ```
 
-```{r}
-subset(lcis, lcis$recorddate == 41.83)
+```{r warning=FALSE, message=FALSE, change_Data_Format}
+# 将借款成功日期的类型由Factor更改为Date
+lc$'借款成功日期' <- as.Date(lc$'借款成功日期')
+str(lc)
 ```
 
-```{r}
-
-```
-
-
-# 单变量绘图选择
 
 ## 用户画像分析
 
 ### 不同性别的用户年龄分布关系
 ```{r echo=FALSE, Univariate_Plots}
 ggplot(aes(x = lc$'性别'), data = lc) +
-    geom_histogram(stat = "count") +
-    labs(x = "性别", y = "用户数", title = "不同性别用户数分布")
+    geom_histogram(stat = "count", width=0.2) +
+    labs(x = "性别", y = "用户数", title = "不同性别用户数分布") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 ```
+拍拍贷的客户中男性客户多于女性。
 ### 不同年龄的用户数分布关系
-```{r warning=FALSE table_age, message=FALSE}
-table(lc$'年龄')
+```{r}
+summary(lc$'年龄')
 ```
 
-```{r fig.width=30}
-lc$age.group = cut(lc$'年龄', breaks = c(16, 18, 22, 25, 28, 35, 40, 60), right = F)
+```{r echo=FALSE}
+lc$age.group = cut(lc$'年龄', 
+    breaks = c(16, 18, 22, 25, 28, 35, 40, 60), right = F,
+    labels = c('小于18岁', '18到22岁', '22到25岁', '25到28岁', 
+               '28到35岁', '35到40岁', '40岁以上'))
+
 p1 <- ggplot(aes(x = age.group), data = lc) +
     geom_histogram(stat = "count") +
-    labs(x = "用户年龄分组", y = "用户数",title = "不同年龄组用户数分布")
+    labs(x = "用户年龄分组", y = "用户数",title = "不同年龄组用户数分布") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+          axis.text.x = element_text(angle = 30, hjust = 1))
 
 p2 <- ggplot(aes(x = age.group, fill =lc$'性别'), data = lc) +
     geom_histogram(stat = "count") +
-    labs(x = "用户年龄分组", y = "用户数",title = "不同年龄组用户数分布")
+    labs(x = "用户年龄分组", y = "用户数",title = "不同年龄组用户数分布") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+          axis.text.x = element_text(angle = 30, hjust = 1))
+
 grid.arrange(p1, p2, ncol=2)
 ```
+拍拍贷用户的年龄位于17到56岁之间，将用户的年龄划分为小于18岁，18到22岁'，22到25岁，25到28岁，28到35，35到40岁以及40岁以上几个区间段对用户数分析，其中28到35岁的用户数量时最多的，其次是25岁到28岁，再其次是22到25岁，而且小于18岁的用户数很少，在整个客户群体中几乎可以忽略。
+
+### 认证用户分布
+将用户进行的手机认证、户口认证等，每进行一项认证加一分，形成一个认证得分auth指标之后。
+```{r}
+lc$auth <- 0
+lc$auth <- apply(lc, 1, function(x){
+  y = 0
+  if(x['手机认证'] == '成功认证') y = y + 1
+  if(x['户口认证'] == '成功认证') y = y + 1
+  if(x['视频认证'] == '成功认证') y = y + 1
+  if(x['学历认证'] == '成功认证') y = y + 1
+  if(x['征信认证'] == '成功认证') y = y + 1
+  if(x['淘宝认证'] == '成功认证') y = y + 1
+  x["auth"] = y
+})
+```
+
+```{r}
+p1 <- ggplot(aes(x=lc$'手机认证'), data=lc)+
+    geom_histogram(stat = "count") +
+    labs(x="手机认证", y="用户数", title="手机认证的用户数分布")
+
+p2 <- ggplot(aes(x=lc$'户口认证'), data=lc)+
+    geom_histogram(stat = "count")+
+    labs(x="户口认证", y="用户数", title="户口认证的用户数分布")
+
+p3 <- ggplot(aes(x=lc$'视频认证'), data=lc)+
+    geom_histogram(stat = "count")+
+    labs(x="视频认证", y="用户数", title="视频认证的用户数分布")
+
+p4 <- ggplot(aes(x=lc$'学历认证'), data=lc)+
+    geom_histogram(stat = "count")+
+    labs(x="学历认证", y="用户数", title="学历认证的用户数分布")
+
+p5 <- ggplot(aes(x=lc$'征信认证'), data=lc)+
+    geom_histogram(stat = "count")+
+    labs(x="征信认证", y="用户数", title="征信认证的用户数分布")
+
+p6 <- ggplot(aes(x=lc$'淘宝认证'), data=lc)+
+    geom_histogram(stat = "count")+
+    labs(x="淘宝认证", y="用户数", title="淘宝认证的用户数分布")
+
+grid.arrange(p1, p2, p3, p4, p5, p6, ncol=3)
+```
+经过对用户群体中的手机认证、户口认证、视频认证、学历认证、征信认证、淘宝认证的各项认证的整体情况来看，未完成认证的用户均高于成功进行认证的用户数，特别，完成户口认证、视频认证、征信认证、淘宝认证的用户微乎其微，相对来说有比较高的客户进行了手机认证和学历认证，接下来对用户的计算出的认证得分的用户分布进行观察。
+
+```{r}
+ggplot(aes(x=factor(auth)), data=lc)+
+    geom_histogram(stat = "count") +
+    scale_y_log10(breaks=c(10, 100, 1000, 5000, 10000, 100000)) +
+    labs(x="认证得分", y="log(用户数)", title="手机认证的用户数分布") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
+```
+从认证得分可以看出在统计的手机认证、户口认证、视频认证、学历认证、征信认证、淘宝认证刘翔认证中，绝大数无认证或者只完成了其中的一到两项认证，只有极少数的人完成了6项认证。
+
 
 ## 用户基础数据分析
 ### 用户借款分布
 ```{r}
-p1 <- ggplot(aes(lc$'借款类型'),data = lc) +
+p1 <- ggplot(aes(x = lc$'借款类型'),data = lc) +
     geom_histogram(stat = "count") +
     labs(x = "用户借款类型", y = "人数", title = "用户借款类型分布关系图")
+
 p2 <- ggplot(aes(x = lc$'借款类型', fill = lc$'性别'),data = lc) +
     geom_histogram(stat = "count") +
-    labs(x = "用户借款类型", y = "人数", title = "不同性别和用户借款类型分布关系图")
+    labs(x = "用户借款类型", y = "人数", 
+         title = "不同性别和用户借款类型分布关系图")
+
 grid.arrange(p1, p2, ncol=2)
 ```
-### 借款金额分布
+通过观察借款类型，普通性用户最多，其次是APP闪电，再其次是其他，电商用户很少，微乎其微，各不同借款类型中，都是男性占比较大。
 
+### 借款金额分布
 ```{r}
-ggplot(aes(x = lc$'借款金额'), data = lc) +
+# 查看借款金额的统计指标
+summary(lc$'借款金额')
+```
+```{r}
+lc$amount.group <- cut(lc$'借款金额',
+          c(0, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 50000, 500001),
+          labels = c('1千以下', '1千到2千', '2千到3千', '3千到4千', '4千到5千', 
+                     '5千到6千', '6千到8千', '8千到1万', '1万到5万', '5万以上'),
+          right = F)
+p1 <- ggplot(aes(x = lc$'借款金额'), data = lc) +
     geom_freqpoly() +
-    scale_x_log10() +
-    labs(x = "借款金额", y = "用户数", title="不同借款金额用户数量分布")
+    scale_x_log10(breaks = c(1000, 2000, 3000, 4000, 5000, 6000, 10000, 50000),
+                  limits = c(500, 50000)) +
+    labs(x = "借款金额", y = "用户数", title="不同借款金额用户数量分布") +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  
+p2 <- ggplot(aes(x = amount.group), data = lc) +
+    geom_histogram(stat = 'count') +
+    labs(x = "借款金额区间", y = "用户数", title="不同借款金额区间的用户数量分布") +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  
+grid.arrange(p1, p2, ncol = 2)
 ```
 ### 借款利率的用户数量分布
 ```{r}
+table(lc$'借款利率')
+```
+
+```{r}
 ggplot(aes(x = lc$'借款利率'), data = lc) +
-    geom_histogram(breaks=seq(6, 24, 0.5)) +
-    scale_y_log10() +
-    labs(x="借款利率", y="用户数", title="不同借款利率的用户数分布")
+    geom_histogram(binwidth = 0.5) +
+    scale_y_log10(breaks = c(1, 10, 100, 1000, 10000, 100000)) +
+    scale_x_continuous(breaks=seq(6, 24, 1), limits = c(6, 24)) +
+    labs(x="借款利率", y="用户数", title="不同借款利率的用户数分布") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 ```
 
 ### 信用评级的用户数量分布
 ```{r}
 p1 <- ggplot(aes(x = lc$'初始评级'), data = lc)+
     geom_histogram(stat = "count")+
-    labs(x = "信用评级", y = "用户数", title="信用评级在用户数上分布")
+    labs(x = "信用评级", y = "用户数", title="信用评级在用户数上分布") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
+
 p2 <- ggplot(aes(x = lc$'初始评级', fill=age.group), data = lc)+
     geom_histogram(stat = "count")+
-    labs(x = "信用评级", y = "用户数", title="信用评级和用户年龄分组在用户数上分布情况")
+    labs(x = "信用评级", y = "用户数", title="信用评级和用户年龄分组在用户数上分布情况") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 grid.arrange(p1, p2, ncol=2)
 ```
 
@@ -113,12 +211,12 @@ table(lc$'历史成功借款次数')
 
 ```{r fig.width=35}
 p1 <- ggplot(aes(x = lc$'历史成功借款次数'), data = lc) +
-    geom_histogram() +
+    geom_histogram(binwidth = 1) +
     scale_x_continuous(breaks = seq(0, 20, 1), limits = c(0,20)) +
     labs(x="历史成功借款次数", y="用户数", title="历史正常还款次数的用户数分布")
 
 p2 <- ggplot(aes(x = lc$'历史成功借款次数', fill=lc$'初始评级'), data = lc) +
-    geom_histogram() +
+    geom_histogram(binwidth = 1) +
     scale_x_continuous(breaks = seq(0, 20, 1), limits = c(0,20)) +
     labs(x="历史成功借款次数", y="用户数", title="历史正常还款次数的用户数分布")
 grid.arrange(p1, p2, ncol=2)
@@ -128,20 +226,24 @@ grid.arrange(p1, p2, ncol=2)
 
 ### 违约概率PD
 
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+lc$default_rate <- lc$'历史逾期还款期数'/ lc$'历史成功借款次数'
+# 将由于历史成功借款次数为0导致上述计算的违约概率为na的值更改为0
+lc$default_rate[is.na(lc$default_rate)] <- 0
+```
 ```{r}
-lc$default_rate <- lc$'历史逾期还款期数' / lc$'历史成功借款次数'
-p1 <- ggplot(aes(x = default_rate), data = lc) +
-    geom_freqpoly()
-
-grid.arrange(p1, ncol=2)
+ggplot(aes(x = default_rate), data = lc) +
+    geom_histogram(binwidth = 0.1)
 ```
 
 ### 违约损失率LGD
-```{r}
+```{r echo=FALSE}
 lc$LGD <- lc$'总待还本金'/lc$'借款金额'
+# 将借款金额为0，经过上述运算得到的违约损失率设置为0
+lc$LGD[is.na(lc$LGD)] <- 0
 p1 <- ggplot(aes(y =LGD), data = lc) +
     geom_boxplot() +
-    scale_y_continuous(limits = c(0,8),breaks = seq(0, 8, 1)) +
+    scale_y_continuous(limits = c(0,4),breaks = seq(0, 4, 0.5)) +
     labs(y = "违约损失率LGD", title = "违约损失率箱线图")
 
 p2 <- ggplot(aes(x = lc$'初始评级', y =LGD), data = lc) +
@@ -155,7 +257,6 @@ summary(lc$LGD)
 ```
 
 
-
 ### 到期日(Maturity)
 
 ### 违约时暴露(Exposure at Default, EAD)
@@ -164,14 +265,17 @@ summary(lc$LGD)
 ## 获客指标分析
 ### 日新增用户数
 ```{r}
-
+sub_lc = subset(lc, lc$'是否首标' == '是')
+ggplot(aes(x = sub_lc$"借款成功日期"), data = sub_lc) +
+    geom_freqpoly() +
+    labs(x="借款成功日期", y = "客户数", title="日新增用户变化曲线")
 ```
 
 ## 变现指标分析
 ### 贷款利率和违约率之间的关系
 ```{r}
-ggplot(aes(x=lc$'借款利率', y=default_rate), data=lc) +
-    geom_jitter(alpha=1/4) +
+ggplot(aes(x=lc$'借款利率', y=default_rate, color=lc$"初始评级"), data=lc) +
+    geom_jitter(alpha=1/10) +
     labs(x="借款利率", y="违约率", title="贷款利率和借款利率之间的关系")
 ```
 
