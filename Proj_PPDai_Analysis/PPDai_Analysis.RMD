@@ -6,6 +6,33 @@
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
 ```
+本文针对拍拍贷业务数据进行分析，该数据包包含了成交时间从2015年1月1日到2017年1月30日的328553支信用标，主要有三个csv数据集文件构成：
+
+- LC(Loan Characteristics)表，标的特征表，每支标一条记录。共有21个字段，包括一个主键（listingid）、7个标的特征和13个成交当时的借款人信息，全部为成交当时可以获得的信息。
+  - ListingId
+  - 借款金额
+  - 借款期限
+  - 借款利率
+  - 借款成功日期
+  - 初始评级
+  - 借款类型
+  - 是否首标
+  - 年龄
+  - 性别
+  - 手机认证
+  - 户口认证
+  - 视频认证
+  - 学历认证
+  - 征信认证
+  - 淘宝认证
+  - 历史成功借款次数
+  - 历史成功借款金额
+  - 总待还本金
+  - 历史正常还款期数
+  - 历史逾期还款期数
+
+- LP(Loan Periodic) 表，标的还款计划和还款记录，每支标每期还款为一条记录。还款记录和状态更新至2017年2月22日。共有10个字段，包括两个主键（listingid和期数），3个还款计划字段和4个还款状态字段。
+- LCIS(Loan Characteristics Investment Status)表：
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
 library(ggplot2)
@@ -21,6 +48,10 @@ lc <- read.csv("ppdai/LC.csv", fileEncoding = "utf-8")
 lp <- read.csv("ppdai/LP.csv", fileEncoding = "utf-8")
 lcis <- read.csv("ppdai/LCIS.csv", fileEncoding = "utf-8")
 ```
+```{r}
+names(lc)
+```
+
 ```{r}
 str(lc)
 ```
@@ -189,6 +220,7 @@ ggplot(aes(x = lc$'借款利率'), data = lc) +
     labs(x="借款利率", y="用户数", title="不同借款利率的用户数分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 ```
+用户的借款利率从6.5%到24%，各个利率阶段用户的数据较为分散，其中再20%和22%用户数量均超过100000，分别126330和137899这样的，这两者已经占到总用户的50%以上。
 
 ### 信用评级的用户数量分布
 ```{r}
@@ -203,6 +235,7 @@ p2 <- ggplot(aes(x = lc$'初始评级', fill=age.group), data = lc)+
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 grid.arrange(p1, p2, ncol=2)
 ```
+用户的信用等级为D的用户最多，其次是C，这两者占用户信用等级的绝大多数，在不同的信用等级下，相对28到35岁的用户偏多，其次是25到28岁的。
 
 ### 历史正常还款次数的用户数分布
 ```{r}
@@ -212,29 +245,35 @@ table(lc$'历史成功借款次数')
 ```{r fig.width=35}
 p1 <- ggplot(aes(x = lc$'历史成功借款次数'), data = lc) +
     geom_histogram(binwidth = 1) +
-    scale_x_continuous(breaks = seq(0, 20, 1), limits = c(0,20)) +
+    scale_x_continuous(limits = c(-1,20)) +
     labs(x="历史成功借款次数", y="用户数", title="历史正常还款次数的用户数分布")
 
 p2 <- ggplot(aes(x = lc$'历史成功借款次数', fill=lc$'初始评级'), data = lc) +
     geom_histogram(binwidth = 1) +
-    scale_x_continuous(breaks = seq(0, 20, 1), limits = c(0,20)) +
+    scale_x_continuous(limits = c(-1,20)) +
     labs(x="历史成功借款次数", y="用户数", title="历史正常还款次数的用户数分布")
+
 grid.arrange(p1, p2, ncol=2)
 ```
+
+用户的成功借款次数分布较为离散，取值范围从0到649，绝大数分布于0到20次，其中有87463用户历史成功借款次数为0，是用户数最多的，之后随着历史成功借款次数的增加用户数量随之减少。
 
 ## 风险要素分析
 
 ### 违约概率PD
-
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 lc$default_rate <- lc$'历史逾期还款期数'/ lc$'历史成功借款次数'
 # 将由于历史成功借款次数为0导致上述计算的违约概率为na的值更改为0
 lc$default_rate[is.na(lc$default_rate)] <- 0
+sum(lc$default_rate == 0)
 ```
+
 ```{r}
 ggplot(aes(x = default_rate), data = lc) +
-    geom_histogram(binwidth = 0.1)
+    geom_histogram(binwidth = 0.1) +
+    scale_x_continuous(limits = c(1, 12))
 ```
+用户违约概率分布再0到12，其中违约概率为0的用户数高达278185，占总用户数的84.7%，其他的用户数较少。
 
 ### 违约损失率LGD
 ```{r echo=FALSE}
