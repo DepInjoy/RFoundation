@@ -38,6 +38,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
 library(ggplot2)
 library(gridExtra)
 library(dplyr)
+library(lubridate)
 # 设置数据显示非科学计数法
 options(scipen=3)
 ```
@@ -187,6 +188,10 @@ grid.arrange(p1, p2, ncol=2)
 # 查看借款金额的统计指标
 summary(lc$'借款金额')
 ```
+```{r echo=FALSE}
+subset(lc, lc$'借款金额' >= 500000)
+```
+
 ```{r}
 lc$amount.group <- cut(lc$'借款金额',
           c(0, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 50000, 500001),
@@ -198,7 +203,7 @@ p1 <- ggplot(aes(x = lc$'借款金额'), data = lc) +
     scale_x_log10(breaks = c(1000, 2000, 3000, 4000, 5000, 6000, 10000, 50000),
                   limits = c(500, 50000)) +
     labs(x = "借款金额", y = "用户数", title="不同借款金额用户数量分布") +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+    theme(axis.text.x = element_text(angle = 60, hjust = 1))
   
 p2 <- ggplot(aes(x = amount.group), data = lc) +
     geom_histogram(stat = 'count') +
@@ -207,6 +212,8 @@ p2 <- ggplot(aes(x = amount.group), data = lc) +
   
 grid.arrange(p1, p2, ncol = 2)
 ```
+可以看到，用户的借款金额主要集中在2千到4千，同时在借款金额的统计指标也可以看到最高借款金额高达50万，详细查看相关数据可知，达到该金额的用户的初始评级都是A和B，大多数进行了3到4项认证，也存在没有进行认证的客户。
+
 ### 借款利率的用户数量分布
 ```{r}
 table(lc$'借款利率')
@@ -301,13 +308,50 @@ summary(lc$LGD)
 ### 违约时暴露(Exposure at Default, EAD)
 
 
-## 获客指标分析
+## 业务指标分析
 ### 日新增用户数
 ```{r}
 sub_lc = subset(lc, lc$'是否首标' == '是')
 ggplot(aes(x = sub_lc$"借款成功日期"), data = sub_lc) +
     geom_freqpoly() +
     labs(x="借款成功日期", y = "客户数", title="日新增用户变化曲线")
+```
+在2015年1月到2016年7月，每日获客数日益增加，在2016年7月到2017年1月日新增用户数趋于稳定，只是小幅波动。
+
+```{r fig.width=25}
+#月份提取参考https://stackoverflow.com/questions/15102327/averaging-daily-data-into-weekly-data?rq=1
+lc$month = month(lc$'借款成功日期')
+lc2 <- rename(lc, 'load' = "借款金额", 'date' = "借款成功日期")
+lc.month.group = lc2 %>%
+        group_by(month) %>%
+        summarise(sum = sum(load),     # 借款金额和
+            count = n()                # 借款人数
+        )
+p1 <- ggplot(aes(x = month, y = sum), data = lc.month.group) +
+    geom_point() +
+    labs(x = "月份", y = "借款金额", title = "借款金额随时间的变化") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+p2 <- ggplot(aes(x = month, weight = count), data = lc.month.group) +
+    geom_bar() +
+    labs(x = "月份", y = "借款人数", title = "借款人数随时间的变化") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+grid.arrange(p1, p2, ncol = 1)
+```
+统计每个月拍拍贷用户的借款金额和借款人数形成上述图表可以看到，拍拍贷的业务每个月的借款人数和借款金额都在增长，这个业务发展状态良好。
+```{r}
+# 绘制双轴参考https://www.jianshu.com/p/fbe8eb3d0954
+library(plotrix)
+if(0){
+    # 尝试将上述两图绘制在一个双轴图失败
+    twoord.plot(lx=lc.month.group$date, ly=lc.month.group$sum,
+            rx=lc.month.group$month, ry=lc.month.group$count,
+            main = '借款人数量和借款金额随月份的变化关系',
+            xlab = "月份", ylab = '借款金额', rylab = '借款人数',
+            type = c('line', 'type'),
+            xtickpos=as.numeric(lc.month.group$month), xticklab=as.character(lc.month.group$month))
+}
 ```
 
 ## 变现指标分析
