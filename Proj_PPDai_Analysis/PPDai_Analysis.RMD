@@ -1,10 +1,10 @@
 拍拍贷用户数据探索
 ========================================================
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+```{r  message=FALSE, warning=FALSE, packages}
 library(ggplot2)
 library(gridExtra)
 library(dplyr)
@@ -13,58 +13,112 @@ library(ggthemes)
 options(scipen=3)
 ```
 
-```{r echo=FALSE, Load_the_Data}
+加载数据，并对数据进行展示，观察数据集包含的变量以及变量的数据类型
+
+```{r  Load_the_Data}
 # 加载数据
 lc <- read.csv("ppdai/LC.csv", fileEncoding = "utf-8")
 str(lc)
 ```
+
 # 数据评估和清洗
+
+ListingId是表格中唯一的主键，统计表格中是否重复的数据，如果存在重复的数据，需要对重复的数据进行删除。
+
 ```{r, warning=FALSE, message=FALSE}
 # 观察是否有重复的数据，无重复数据，无须处理
 sum(duplicated(lc$ListingId))
 ```
+
+表格中不存在重复数据，不需要进行重复数据的清理。
+
+在上面数据展示中看到几款成功日期的数据类型位Factor，将其修改为Date，并进行验证。
+
 ```{r warning=FALSE, message=FALSE, change_Data_Format}
 # 将借款成功日期的类型由Factor更改为Date
 lc$'借款成功日期' <- as.Date(lc$'借款成功日期')
+str(lc$'借款成功日期')
 ```
 
 为了后续的分析创建新的数据特征：
-将标的的历史正常还款期数除以历史正常还款期数和历史正常还款期数的和构成违约概率，创建新的属性变量
+
+- 将标的的历史正常还款期数除以历史正常还款期数和历史正常还款期数的和构成违约概率(default_ratio)，创建新的属性变量
+
 ```{r}
 lc$default_ratio <- lc$"历史逾期还款期数" + lc$"历史成功借款次数"
-lc$default_ratio <- ifelse(lc$default_ratio != 0, lc$'历史逾期还款期数'/ lc$default_ratio, 0)
+lc$default_ratio <- ifelse(lc$default_ratio != 0, 
+                           lc$'历史逾期还款期数'/ lc$default_ratio, 0)
 ```
-将标的的总代还本金除以借款金额构成违约损失率(LGD, Loss Given Default)
-```{r message=FALSE}
+
+- 将标的的总代还本金除以借款金额构成违约损失率(LGD)
+
+```{r}
 lc$LGD <- ifelse(lc$"借款金额" != 0,lc$"总待还本金" / lc$"借款金额", 0)
 ```
+
 # 单变量绘图选择
 
-## 性别的分布探索
-```{r echo=FALSE, Univariate_Plots}
-# 绘制性别的用户分布直方图
-ggplot(aes(x = lc$'性别'), data = lc) +
-    geom_histogram(stat = "count", width=0.2, fill="#fab1a0") +
-    labs(x = "性别", y = "用户数", title = "不同性别用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
-```
-## 年龄分布探索
 ```{r}
-# 绘制用户年龄分布直方图
-p1 <- ggplot(aes(x = lc$"年龄"), data = lc) +
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0") +
-    scale_x_continuous(breaks = seq(17, 60, 2)) +
-    labs(x = "年龄", y = "用户数",title = "不同年龄组用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12),
-          axis.text.x = element_text(hjust = 0.5))
-p1
-```
-```{r}
-# 绘制年龄分布直方图并依据性别分面
-p1 + facet_wrap(~lc$"性别", ncol = 2)
+# 制定单变量直方图绘制的样式
+univariate_hist_plot <- function(varName, binwidth = 5){
+    return(ggplot(aes(x = varName), data = lc) +
+               geom_histogram(stat = "count", fill="#fab1a0", 
+                              width = 0.4, binwidth = binwidth) +
+               theme(plot.title = element_text(hjust = 0.5, 
+                                               face = "bold", size = 12))
+    )
+}
+
+# 制定单变量箱线图绘制样式
+univariate_boxplot <- function(varName){
+    return(ggplot(aes(y = varName), data = lc) +
+               geom_boxplot(color="#fab1a0") +
+               theme(plot.title = element_text(hjust = 0.5, 
+                                               face = "bold", size = 12))
+    )
+}
+
 ```
 
-```{r}
+## 性别的分布探索
+
+从性别角度探究用户数的分布关系，获取用户画像中性别分布比例，下面绘制性别的用户分布直方图。
+
+```{r  Univariate_Plots}
+univariate_hist_plot(lc$'性别') +
+    labs(x = "性别", y = "用户数", title = "不同性别用户数分布")
+```
+
+可见，男性用户大于女性。
+
+## 年龄分布探索
+
+年龄是用户画像的一个纬度信息，不同年龄段在某种程度上代表了用户生活的一个阶段，在接下来的分析中首先绘制用户年龄分布直方图来查看用户年龄的分布情况，之后将用户年龄划分为小于18岁、18到22岁、22到25岁、25到28岁、28到35岁、35到40岁、40岁以上来观察不同年龄段用户的分布情况。
+
+用户年龄统计数据:
+```{r, echo=FALSE}
+summary(lc$"年龄")
+```
+
+```{r, echo=FALSE}
+# 绘制用户年龄分布直方图
+p1 <- univariate_hist_plot(lc$"年龄") +
+    labs(x = "年龄", y = "用户数",title = "年龄用户数分布直方图") +
+    scale_x_continuous(breaks = seq(16, 60, 4))
+p1
+```
+
+用户的年龄位于17到56岁之间，整体上来看用户的年龄呈现左偏分布，年龄位于22到28之间的用户数较多，40岁以上的用户数很少。
+
+```{r., echo=FALSE}
+# 绘制年龄分布直方图并依据性别分面
+p1 + facet_wrap(~lc$"性别", ncol = 2) +
+    labs(title = "不同年龄的用户数分布的性别分面图")
+```
+
+从不同性别的角度看不同年龄用户分布，分布也都呈现左偏分布,可见性别和各个年龄的用户数不相关。
+
+```{r, echo=FALSE}
 # 依据年龄段进行分组
 lc$age.group = cut(lc$'年龄', 
     breaks = c(16, 18, 22, 25, 28, 35, 40, 60), right = F,
@@ -72,43 +126,42 @@ lc$age.group = cut(lc$'年龄',
                '28到35岁', '35到40岁', '40岁以上'))
 
 # 绘制年龄分组的用户分布直方图
-ggplot(aes(x = age.group), data = lc) +
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0") +
-    labs(x = "用户年龄分组", y = "用户数",title = "不同年龄组用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12),
-          axis.text.x = element_text(hjust = 0.5))
+univariate_hist_plot(lc$age.group) + 
+    labs(x = "年龄分组", y = "用户数",title = "不同年龄组用户数分布")
 ```
+
+从不同的年龄分组中可以看到，小于18岁的用户数很少，以28到35岁的用户居多，是拍拍贷的主要用户群体。
+
 ## 认证分布探索
-```{r, fig.with=18}
+
+在拍拍贷的数据集中，记录了用户的手机认证、户口认证、视频认证、学历认证、征信认证和淘宝认证是否成功，认证情况和用户的信用情况有很大的关联性，在接下来的分析中首先查看一下各项认证的用户分布情况，之后在用户各项认证情况中，将用户每完成一项认证得1分，没完成认证得0，将各项认证的得分相加的和，形成认证数新变量，进而探究认证数的用户数分布情况。
+
+```{r,  fig.with=18}
 # 认证情况的用户分布
-p1 <- ggplot(aes(x=lc$'手机认证'), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0") +
+p1 <- univariate_hist_plot(lc$'手机认证') +
     labs(x="手机认证", y="用户数", title="手机认证用户数分布")
 
-p2 <- ggplot(aes(x=lc$'户口认证'), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
+p2 <- univariate_hist_plot(lc$'户口认证') +
     labs(x="户口认证", y="用户数", title="户口认证用户数分布")
 
-p3 <- ggplot(aes(x=lc$'视频认证'), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
+p3 <- univariate_hist_plot(lc$'视频认证') +
     labs(x="视频认证", y="用户数", title="视频认证用户数分布")
 
-p4 <- ggplot(aes(x=lc$'学历认证'), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
+p4 <- univariate_hist_plot(lc$'学历认证') +
     labs(x="学历认证", y="用户数", title="学历认证用户数分布")
 
-p5 <- ggplot(aes(x=lc$'征信认证'), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
+p5 <- univariate_hist_plot(lc$'征信认证') +
     labs(x="征信认证", y="用户数", title="征信认证用户数分布")
 
-p6 <- ggplot(aes(x=lc$'淘宝认证'), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
+p6 <- univariate_hist_plot(lc$'淘宝认证') +
     labs(x="淘宝认证", y="用户数", title="淘宝认证用户数分布")
 
 grid.arrange(p1, p2, p3, p4, p5, p6, ncol=3)
 ```
-用户每完成一项认证得一分，将所有的得分形成认证数新变量，进行数据统计
-```{r}
+
+对各项认证进行横向观察，内部的是否完成认证对比可以看到大多数用户都没有完成相关的认证;同时从纵向数据对比可以看到相对来说成功进行手机认证和学历认证的用户数占比相对较高，其他的各项认证中成功进行认证的人数微乎其微。
+
+```{r, echo=FALSE}
 # 计算认证数新变量
 lc$auth <- 0
 lc$auth <- apply(lc, 1, function(x){
@@ -121,52 +174,68 @@ lc$auth <- apply(lc, 1, function(x){
   if(x['淘宝认证'] == '成功认证') y = y + 1
   x["auth"] = y
 })
-```
-```{r}
-ggplot(aes(x=factor(auth)), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0") +
+
+univariate_hist_plot(factor(lc$auth)) +
     scale_y_log10(breaks=c(10, 100, 1000, 5000, 10000, 100000)) +
-    labs(x="认证得分", y="log(用户数)", title="手机认证的用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
-```
-```{r}
-table(lc$'初始评级')
+    labs(x="认证数", y="log(用户数)", title="认证数的用户数分布")
 ```
 
-```{r}
-# 初始评级的用分布
-ggplot(aes(x = lc$'初始评级'), data = lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
-    labs(x = "初始信用评级", y = "用户数", title="初始信用评级在用户数上分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+在认证数的用户数量分布在存在数量级上的差异，大多数用户只完成了0、1、2项，只有极少数的用户完成了6项认证。
+
+## 初始评级的用分布
+
+用户初始评级在一定程度反映了用户的信用等级，研究该变量的用户分布，来探究用户信用信息的分布情况。
+
+```{r, echo=FALSE}
+univariate_hist_plot(lc$'初始评级') +
+    labs(x = "初始信用评级", y = "用户数", title="初始信用评级在用户数上分布")
 ```
 
-```{r}
-# 是否首标用户分布分析
-ggplot(aes(x=lc$'是否首标'), data = lc) +
-    geom_histogram(stat = "count", width = 0.2, fill="#fab1a0") +
-    labs(x="是否是首标", y="用户数", title="是否首标用户分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
-```
-```{r}
-# 借款类型的用户数分布
-ggplot(aes(x = lc$"借款类型"), data = lc) +
-    geom_histogram(stat = "count", width = 0.4, fill="#fab1a0") +
-    labs(x = "用户借款类型", y = "用户数", title = "借款类型分布关系图") +
-    theme(axis.text.x = element_text(hjust = 1),
-            plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
-```
+不存在信用等级为AAA和AA的用户，初始信用等级为C和D的用户占绝大多数，其他信用等级的用户极少。
+
+## 是否首标用户分布分析
+
+该订单首标表示这是该客户首次在拍拍贷进行贷款是新增用户，而非首标表示，该用户已经在平台进行过投标时老用户，对是否首标的用户数分布分析可以这段时期内的新用户和老用户的占比。
 
 ```{r}
+univariate_hist_plot(lc$'是否首标') +
+    labs(x="是否是首标", y="用户数", title="是否首标用户分布")
+```
+
+非首标用户远远大于首标用户，说明平台的投标业务大多数是老用户。
+
+## 借款类型的用户数分布
+
+研究不同借款类型的用户数量分布情况。
+
+```{r, echo=FALSE}
+lc$"借款类型" <- factor(lc$"借款类型", 
+              levels = c("普通", "APP闪电", "其他", "电商"))
+univariate_hist_plot(lc$"借款类型") +
+    labs(x = "用户借款类型", y = "用户数", title = "借款类型分布关系图")
+```
+
+不同的借款类型中，普通用户数量最多，其次是APP闪电，再其次是其他，电商人数最少，其中电商类型的用户数极其少。
+
+## 借款金额的用户分布情况
+
+借款金额的统计信息
+
+```{r, echo=FALSE}
 summary(lc$"借款金额")
 ```
-借款金额大于等于50万用户数据展示
-```{r}
+
+借款金额大于等于50万用户的部分数据展示
+
+```{r, echo=FALSE}
 subset(lc, lc$'借款金额' >= 500000) %>%
-    select(c('借款金额', 'age.group', '借款利率', 'auth', '初始评级', "性别", "年龄"))
+    select(c('借款金额', 'age.group', '借款利率',
+             'auth', '初始评级', "性别", "年龄"))
 ```
 
-```{r}
+借款金额的最小值为100，最大值为50万，数据呈现长尾分布，对借款金额取log运算并绘制频率多边形图，另外将借款金额划分为1千以下、1千到2千、2千到3千、3千到4千、4千到5千、5千到6千、6千到8千、8千到1万、1万到5万、5万以上几个分组，屏蔽一些不必要的差异信息来观察借款金额的用户分布情况。
+
+```{r, echo=FALSE}
 lc$amount.group <- cut(lc$'借款金额',
           c(0, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 50000, 500001),
           labels = c('1千以下', '1千到2千', '2千到3千', '3千到4千', '4千到5千', 
@@ -177,193 +246,241 @@ p1 <- ggplot(aes(x = lc$'借款金额'), data = lc) +
     geom_freqpoly(color="#fab1a0") +
     scale_x_log10(breaks = c(1000, 2000, 3000, 4000, 5000, 6000, 10000, 50000),
                   limits = c(500, 50000)) +
-    labs(x = "借款金额", y = "用户数", title="借款金额用户数分布") +
+    labs(x = "借款金额(RMB)", y = "用户数", title="借款金额用户数分布") +
     theme(axis.text.x = element_text(angle = 60, hjust = 1),
             plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 
-p2 <- ggplot(aes(x = amount.group), data = lc) +
-    geom_histogram(stat = 'count', width = 0.6, fill="#fab1a0") +
+p2 <- univariate_hist_plot(lc$amount.group) +
     labs(x = "借款金额区间", y = "用户数", title="借款金额区间的用户数分布") +
-    theme(axis.text.x = element_text(angle = 30, hjust = 1), 
-          plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
 grid.arrange(p1, p2, ncol = 2)
 ```
-```{r}
+
+借款金额呈现长尾分布，最小值为100，最大值高达50万，而大多数金额分布在2000到4000，借款金额达到5万以上的人数极少。
+
+## 借款期限用户分布
+
+借款期限统计信息
+
+```{r, echo=FALSE}
 summary(lc$'借款期限')
 ```
 
-```{r}
-# 不同借款期限的用户分布
-# 借款金额数据比较分散,主要集中在6个月和12个月
+不同借款期限的用户分布，不同借款期限的用户数分布较为离散，将用户的借款期限划分为半年及以下、半年到一年、1到1.5年、1.5到2年几个分组，分别观察各个期限组的用户分布。
 
+```{r, echo=FALSE}
 lc$long.group <- cut(lc$'借款期限',
           c(0, 6, 12, 18, 24),
-          labels = c('半年', '一年', '一年半', '两年'),
+          labels = c('半年及以下', '半年到一年', '1到1.5年', '1.5到2年'),
           right = T)
 
-p1 <- ggplot(aes(x=lc$'借款期限'), data = lc) +
-    geom_histogram(stat = "count", fill="#fab1a0") +
-    labs(x="借款期限", y="用户数", title="借款期限用户分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+p1 <- univariate_hist_plot(lc$'借款期限') +
+    labs(x="借款期限(月)", y="用户数", title="借款期限用户分布")
 
-p2 <- ggplot(aes(x=long.group), data = lc) +
-    geom_histogram(stat = "count", fill="#fab1a0") +
-    labs(x="借款期限分组", y="用户数", title="借款期限分组用户分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+p2 <- univariate_hist_plot(lc$long.group) +
+    labs(x="借款期限分组", y="用户数", title="借款期限分组用户分布")
 
 grid.arrange(p1, p2, ncol = 2)
 ```
+
+用户的借款期限位于1个月到24个月，不同借款期限的用户数分布较为离散，主要集中在6个月和12个月,绝大多数用户的借款期限是12个月，其次是6个月借款期限，其他借款期限的用户极少；观察不同借款期限分布可以明显看到半年到一年的用户占绝大多数，其次是半年及以下的，其他用户微乎其微。
+
+## 借款利率用户分布
+
+不同借款利率的用户数
 
 ```{r}
 table(lc$"借款利率")
 ```
-```{r}
+
+借款利率为20和22的用户占总用户数的比例
+
+```{r, echo=FALSE}
 (sum(lc$"借款利率" == 20) + sum(lc$"借款利率" == 22)) / nrow(lc)
 ```
 
-```{r}
+借款利率统计数据
+
+```{r, echo=FALSE}
 summary(lc$"借款利率")
 ```
 
+借款利率用户分布箱线图和直方图
+
 ```{r, fig.width=8}
-p1 <- ggplot(aes(x = lc$'借款利率'), data = lc) +
-    geom_histogram(binwidth = 0.5, fill="#fab1a0") +
+p1 <- univariate_hist_plot(lc$'借款利率') +
     scale_y_log10(breaks = c(1, 10, 100, 1000, 10000, 100000)) +
     scale_x_continuous(breaks=seq(6, 24, 2)) +
-    labs(x="借款利率", y="用户数", title="借款利率用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(x="借款利率(%)", y="用户数", title="借款利率用户数分布")
+    
 
-p2 <- ggplot(aes(y = lc$'借款利率'), data = lc) +
-    geom_boxplot(color="#fab1a0") +
+p2 <- univariate_boxplot(lc$'借款利率') +
     scale_y_continuous(breaks = seq(6, 24, 2)) +
-    labs(y="借款利率", title="借款利率箱线图") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(y="借款利率(%)", title="借款利率箱线图")
 
 grid.arrange(p1, p2, ncol = 2)
 ```
-```{r}
+
+不同的借款利率下，用户数存在数量级上的差异，在对用户数上进行log运算可以更直观地展示用户分布，利率在20到22之间的用户数最多，其中20%和22%用户数量分别126330和137899这样的，这两者已经占到总用户的80.4%。
+
+## 历史成功借款次数用户分布
+
+历史成功借款次数统计数据
+
+```{r, echo=FALSE}
 summary(lc$'历史成功借款次数')
 ```
-```{r}
-# 查看历史成功借款次数为0的用户占比
+
+历史成功借款次数为0的用户占比
+
+```{r, echo=FALSE}
 sum(lc$'历史成功借款次数' == 0)/nrow(lc)
 ```
 
-```{r,fig.width=8}
-p1 <- ggplot(aes(x = lc$'历史成功借款次数'), data = lc) +
-    geom_histogram(stat = "count", fill="#fab1a0") +
+```{r,  fig.width=8}
+p1 <- univariate_hist_plot(lc$'历史成功借款次数') +
     scale_x_log10(breaks = c(1, 10, 100, 1000)) +
-    labs(x="借款利率", y="用户数", title="借款利率用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+    labs(x="历史成功借款次数", y="用户数", title="借款利率用户数分布")
 
-p2 <- ggplot(aes(y = lc$'历史成功借款次数'), data = lc) +
-    geom_boxplot(color="#fab1a0") +
+p2 <- univariate_boxplot(lc$'历史成功借款次数') +
     coord_cartesian(ylim = c(0, 4)) +
-    labs(y="历史成功借款次数", title="历史成功借款次数箱线图") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(y="历史成功借款次数", title="历史成功借款次数箱线图")
 
 grid.arrange(p1, p2, ncol = 2)
 ```
+
+历史成功借款次数位于0到649，大多数取值为0到3次，其中0占比为26.6%，数据比较分散且误差较小，存在很多的异常点。
+
+## 历史正常还款期数用户分布
+
+历史正常还款期数用户分布统计数据
+
 ```{r}
 summary(lc$'历史正常还款期数')
 ```
 
+历史正常还款期数为0的用户占比计算
+
 ```{r}
-# 历史正常还款期数用户占比计算
 sum(lc$'历史正常还款期数' == 0)/nrow(lc)
 ```
 
 ```{r}
-p1 <- ggplot(aes(x = lc$'历史正常还款期数'), data = lc) +
-    geom_histogram(stat = "count", fill="#fab1a0") +
+p1 <- univariate_hist_plot(lc$'历史正常还款期数') +
     coord_cartesian(xlim = c(0, 40)) +
-    labs(x="历史正常还款期数", y="用户数", title="历史正常还款期数用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(x="历史正常还款期数(月)", y="用户数",
+         title="历史正常还款期数用户数分布")
 
-p2 <- ggplot(aes(y = lc$"历史正常还款期数"), data = lc) +
-    geom_boxplot(color="#fab1a0") +
+p2 <- univariate_boxplot(lc$"历史正常还款期数") +
     coord_cartesian(ylim = c(0, 20)) +
-    labs(x="", y="历史正常还款期数", title="历史正常还款期数分布箱线图") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(x="", y="历史正常还款期数(月)", 
+         title="历史正常还款期数分布箱线图")
 
 grid.arrange(p1, p2, ncol = 2)
 ```
+
+历史正常还款期数数据分布比较离散，取值范围从0到2507，其中0占比为27.2%，均值为9.9，众数为5，方差不大，在箱线图可以看出存在很多的异常点。
+
+## 历史逾期还款期数用户分布
+
+历史逾期还款期数统计数据
+
 ```{r}
 summary(lc$'历史逾期还款期数')
 ```
 
+历史正常还款期数为0的用户占比：
+
 ```{r}
-# 历史正常还款期数用户占比计算
 sum(lc$'历史逾期还款期数' == 0)/nrow(lc)
 ```
+
 ```{r}
-# 历史逾期还款期数用户分布
-ggplot(aes(x = lc$'历史逾期还款期数'), data = lc) +
-    geom_histogram(stat = "count", fill="#fab1a0") +
-    scale_x_log10(breaks= c(0, 5, 15, 20, 40, 60)) +
-    labs(x="历史正常还款期数", y="用户数", title="历史正常还款期数用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+univariate_hist_plot(lc$'历史逾期还款期数') +
+    scale_x_continuous(breaks= seq(0, 15, 1), limits = c(-1, 15)) +
+    labs(x="历史正常还款期数(月)", y="用户数",
+         title="历史正常还款期数用户数分布")
 ```
-```{r}
+
+历史逾期还款期数取值范围是0到60，数据主要集中在0处，取值为0的数据占比为84.7%。
+
+## 历史成功借款次数
+
+历史成功借款次数统计数据
+
+```{r, echo=FALSE}
 summary(lc$"历史成功借款次数")
 ```
 
-```{r}
-# 历史成功借款次数用户占比计算
+历史成功借款次数为0的用户占比：
+
+```{r, echo=FALSE}
 sum(lc$'历史成功借款次数' == 0)/nrow(lc)
 ```
 
-```{r}
-# 历史逾期还款期数用户分布
-p1 <- ggplot(aes(x = lc$'历史成功借款次数'), data = lc) +
-    geom_histogram(stat = "count", fill="#fab1a0") +
+```{r, echo=FALSE}
+p1 <- univariate_hist_plot(lc$'历史成功借款次数') +
     scale_x_log10(breaks= c(0, 5, 20, 60, 100)) +
-    labs(x="历史成功借款次数", y="用户数", title="历史成功借款次数用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(x="历史成功借款次数", y="用户数", title="历史成功借款次数用户数分布")
 
-p2 <- ggplot(aes(y = lc$"历史成功借款次数"), data = lc) +
-    geom_boxplot(color="#fab1a0") +
+p2 <- univariate_boxplot(lc$"历史成功借款次数") +
     coord_cartesian(ylim = c(0, 10)) +
-    labs(x="", y="历史成功借款次数", title="历史成功借款次数分布箱线图") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+    labs(x="", y="历史成功借款次数", title="历史成功借款次数分布箱线图")
+
 grid.arrange(p1, p2, ncol = 2)
 ```
+
+历史成功借款次数分布呈现长尾分布，取值区间位于0到649，众数为2，其中借款次数为0的用户占总用户的26.6%。
+
+## 违约概率用户数分布
+
+违约概率为0的用户占比
 
 ```{r}
 sum(lc$default_ratio == 0)/ nrow(lc)
 ```
+
+0.95和0.9中位数对应的违约概率:
+
 ```{r}
 quantile(lc$default_ratio, 0.95)
 quantile(lc$default_ratio, 0.99)
 ```
 
 ```{r}
-# 违约概率用户数分布
 ggplot(aes(x = lc$default_ratio), data = lc) +
     geom_histogram(binwidth = 0.05, fill="#fab1a0") +
     scale_x_continuous(breaks = seq(0.05, 1, 0.05),limits = c(0.05, 1)) +
     labs(x="违约概率", y="用户数", title="违约概率用户数分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
-违约概率为0的客户占比为84.7%,违约概率0.5的群体占比可达到95%，违约概率低于0.69的客户占比达到99%.
-```{r}
+
+违约概率为0的客户占比为84.7%,违约概率低于0.5的群体占比可达到95%，违约概率低于0.69的客户占比达到99%.
+
+## 违约损失用户分布
+
+违约损失统计数据
+
+```{r, echo=FALSE}
 summary(lc$LGD)
 ```
-```{r}
+
+违约损失为0的用户占比：
+
+```{r, echo=FALSE}
 sum(lc$LGD == 0)/nrow(lc)
 ```
 
 
-```{r}
-# 违约损失用户数分布
-ggplot(aes(y = LGD), data = lc) +
-    geom_boxplot(color = "#fab1a0") +
+```{r, echo=FALSE}
+univariate_boxplot(lc$LGD) +
     coord_cartesian(ylim = c(0, 4)) +
-    labs(y = "违约损失", title = "违约损失分布箱线图") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+    labs(y = "违约损失", title = "违约损失分布箱线图")
 ```
-违约损失的分布比较离散，取值范围是0到396.14，中位数是0.78，其中取值为0的用户占比为30.8%
+
+违约损失的分布比较离散，取值范围是0到396.14，中位数是0.78，其中取值为0的用户占比为30.8%，大多数数据位于0到2.2左右，存在很多异常点数据。
+
 # 单变量分析
 
 ### 你的数据集结构是什么？
@@ -393,9 +510,11 @@ ggplot(aes(y = LGD), data = lc) +
 - 用户的画像，根据数据的结构探索用户画像可以从
     - 用户的基本信息分析(包含年龄和性别)
     - 信用信息分析(包含初始评级和认证情况)。
+
 - 平台业务情况，平台业务分析主要从
     - 平台业务的基本情况分析(包含借款金额分布、是否首标、借款利率分布、平均利率和初始评级间的关系)
     - 平台业务发展情况(包含借款次数变化、借款金额变化、日新增用户变化)分析两个角度着手。
+
 - 风险分析
     - 违约风险分析(包含违约概率分布,违约损失概率分布)
 
@@ -416,7 +535,7 @@ ggplot(aes(y = LGD), data = lc) +
 ### 在已经探究的特性中，是否存在任何异常分布？你是否对数据进行一些操作，如清洁、调整或改变数据的形式？如果是，你为什么会这样做？
 - 将借款成功日期的数据类型由Factor调整为Date.
 - 用户的年龄呈现左偏分布，大多数用户的年龄位于28到35岁。
-- 在认证数的用户数量分布存在很大的差异，大多数用户只完成了1、2项，只有很少很少的用户完成了6项认证。
+- 在认证数的用户数量分布存在数量级上的差异，大多数用户只完成了0、1、2项，只有极少数的用户完成了6项认证。
 - 借款金额呈现长尾分布，最小值为100，最大值高达50万，而大多数金额分布在2000到4000，在分析时进行log运算可以更好地进行数据的呈现。
 - 借款期限的数据比较分散，取值范围为1到24个月，大多数借款期限集中在6个月和12个月，其他的用户数很少。
 - 不同的借款利率下，用户数存在数量级上的差异，在对用户数上进行log运算可以更直观地展示用户分布，利率在20到22之间的用户数最多，其中20%和22%用户数量分别126330和137899这样的，这两者已经占到总用户的80.4%。
@@ -426,14 +545,26 @@ ggplot(aes(y = LGD), data = lc) +
 - 违约损失的分布比较离散，取值范围是0到396.14，中位数是0.78，其中取值为0的用户占比为30.8%.
 
 # 双变量绘图选择
-```{r echo=FALSE, Bivariate_Plots}
+
+```{r  Bivariate_Plots}
+# 定制双变量绘制柱状图的样式
+bivariate_bar_plot <- function(x, y, data = lc, width = 0.4){
+    return( ggplot(aes(x = x, y =y), data = data) +
+                geom_bar(stat="identity", width = width, fill="#fab1a0") +
+                theme(plot.title = element_text(hjust = 0.5, 
+                                               face = "bold", size = 12))
+    )
+}
 
 ```
 
 # 双变量分析
 
 ## 借款利率相关因素探究
-```{r}
+
+初始评级和认证数在在一定程度上代表了用户的信用等级，那么平台是否会结合用户的信用等级信息设置不同的贷款利率，分别计算不同信用等级用户的借款利率。
+
+```{r, echo=FALSE}
 names(lc)[names(lc) == "初始评级"] <- "initial_rating"
 names(lc)[names(lc) == "借款利率"] <- "ratio"
 
@@ -445,94 +576,104 @@ rate.auth <- lc %>%
     group_by(auth) %>%
     summarise(mean = mean(ratio))
 
-p1 <- ggplot(aes(x=initial_rating, y=mean),data = rate.initial_rating) +
-    geom_bar(stat="identity", width = 0.4, fill="#fab1a0") +
-    labs(x= "初始评级", y = "平均借款利率", title="不同初始评级的平均借款利率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
-
-p2 <- ggplot(aes(x=factor(auth), y=mean),data = rate.auth) +
-    geom_bar(stat="identity", width = 0.4, fill="#fab1a0") +
-    labs(x= "认证数", y = "平均借款利率", title="认证数的平均借款利率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
-
-grid.arrange(p1, p2, ncol = 2)
-
 names(lc)[names(lc) == "initial_rating"] <- "初始评级"
 names(lc)[names(lc) == "ratio"] <- "借款利率"
+
+p1 <- bivariate_bar_plot(x = rate.initial_rating$initial_rating, 
+                       y = rate.initial_rating$mean, 
+                       data = rate.initial_rating) +
+    labs(x= "初始评级", y = "平均借款利率(%)", 
+         title="不同初始评级的平均借款利率")
+
+p2 <- bivariate_bar_plot(x = rate.auth$auth, 
+                         y = rate.auth$mean, data = rate.auth) +
+    labs(x= "认证数", y = "平均借款利率(%)", 
+         title="认证数的平均借款利率")
+
+grid.arrange(p1, p2, ncol = 2)
 ```
+
 初始评级从A到E随着初始评级的降低，用户的平均借款利率逐渐升高，而在初始评级为F的平均借款利率却低于E时，同时也可以看到无论用户的初始评级如何用户的平均借款利率均查过了15%，而初始评级为C、D、E和F的平均借款利率都超过了20。从认证数的角度，随着认证数的增加，用户的平均借款利率下降。
 
 ## 违约率相关因素探究
-```{r}
+
+用户的违约率和性别之间是否有直接的关系，针对性别分别计算相对应的违约率，来研究两者之间的关系。
+
+```{r, echo=FALSE}
 names(lc)[names(lc) == "性别"] <- "sex"
+
 default_ratio.sex <- lc %>%
     group_by(sex) %>%
     summarise(default_ratio_mean = mean(default_ratio))
 
-ggplot(aes(x=sex, y=default_ratio_mean),data = default_ratio.sex) +
-    geom_bar(stat="identity", width = 0.2, fill="#fab1a0") +
-    labs(x= "性别", y = "平均违约率", title="不同性别的平均违约率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+bivariate_bar_plot(default_ratio.sex$sex, default_ratio.sex$default_ratio_mean, 
+                   default_ratio.sex, width = 0.2) +
+    labs(x= "性别", y = "平均违约率", title="不同性别的平均违约率")
 
 names(lc)[names(lc) == "sex"] <- "性别"
 ```
+
 可见女性的平均违约率要高于男性。
+
 ```{r}
 names(lc)[names(lc) == "年龄"] <- "age"
+
 default_ratio.age <- lc %>%
     group_by(age) %>%
     summarise(default_ratio_mean = mean(default_ratio))
 
-ggplot(aes(x=age, y=default_ratio_mean),data = default_ratio.age) +
-    geom_bar(stat="identity", width = 0.2, fill="#fab1a0") +
-    labs(x= "年龄", y = "平均违约率", title="不同性别的平均违约率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+bivariate_bar_plot(x = default_ratio.age$age, 
+                   y = default_ratio.age$default_ratio_mean, 
+                   data = default_ratio.age) +
+    labs(x= "年龄", y = "平均违约率", title="不同年龄的平均违约率")
 
 names(lc)[names(lc) == "age"] <- "年龄"
 ```
+
 违约率和年龄间的关系不大。
-```{r}
+
+```{r, echo=FALSE}
 names(lc)[names(lc) == "借款利率"] <- "rate"
 default_ratio.rate <- lc %>%
     group_by(rate) %>%
     summarise(default_ratio_mean = mean(default_ratio))
 
-ggplot(aes(x=rate, y=default_ratio_mean), data = default_ratio.rate) +
-    geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
+bivariate_bar_plot(default_ratio.rate$rate, 
+                   default_ratio.rate$default_ratio_mean, default_ratio.rate) +
     scale_x_continuous(breaks = seq(12, 25, 1), limits = c(12, 25)) +
-    labs(x= "借款利率", y = "平均违约率", title="不同借款利率的平均违约率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+    labs(x= "借款利率", y = "平均违约率", title="不同借款利率的平均违约率")
 
 names(lc)[names(lc) == "rate"] <- "借款利率"
 ```
-借款利率在20以上的用户的违约率相对较高，其中借款利率为22左右的平均违约率最高。
 
-```{r}
+相对来说借款利率在20及其以下的用户的平均违约率较高，而借款利率在20以上的用户的违约率相对较高，其中借款利率为22左右的平均违约率最高。
+
+```{r, echo=FALSE}
 names(lc)[names(lc) == "初始评级"] <- "initial_rating"
 default_ratio.initial_rating <- lc %>%
     group_by(initial_rating) %>%
     summarise(default_ratio_mean = mean(default_ratio))
 
-ggplot(aes(x=initial_rating, y=default_ratio_mean),data = default_ratio.initial_rating) +
-    geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
-    labs(x= "初始评级", y = "平均违约率", title="不同初始评级的平均违约率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+bivariate_bar_plot(default_ratio.initial_rating$initial_rating,
+                   default_ratio.initial_rating$default_ratio_mean,
+                   default_ratio.initial_rating) +
+    labs(x= "初始评级", y = "平均违约率", title="不同初始评级的平均违约率")
 
 names(lc)[names(lc) == "initial_rating"] <- "初始评级"
 ```
+
 从上图可以看到，大体上初始评级越差平均违约率也越高，其中F等级的违约率最高，其次是E等级，A等级的违约率最低。
 
-
-```{r}
+```{r, echo=FALSE}
 default_ratio.auth <- lc %>%
     group_by(auth) %>%
     summarise(default_ratio_mean = mean(default_ratio))
 
-ggplot(aes(x=factor(auth), y=default_ratio_mean),data = default_ratio.auth) +
-    geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
-    labs(x= "认证数", y = "平均违约率", title="不同认证数的平均违约率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+bivariate_bar_plot(factor(default_ratio.auth$auth), 
+                   default_ratio.auth$default_ratio_mean, default_ratio.auth) +
+    labs(x= "认证数", y = "平均违约率", title="不同认证数的平均违约率")
 ```
+
 认证数从0到3平均违约率逐渐升高，之后从4到6又逐渐降低，认证数为0的用户的平均违约率最低。
 
 
@@ -545,30 +686,33 @@ default_ratio.type <- lc %>%
 
 names(lc)[names(lc) == "type"] <- "借款类型"
 
-ggplot(aes(x=type, y=default_ratio_mean),data = default_ratio.type) +
-    geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
-    labs(x= "借款类型", y = "平均违约率", title="不同借款类型的平均违约率") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+default_ratio.type$type <- factor(default_ratio.type$type, 
+                                  levels = c("其他", "电商", "普通", "APP闪电"))
+
+bivariate_bar_plot(default_ratio.type$type, 
+                   default_ratio.type$default_ratio_mean, default_ratio.type) +
+    labs(x= "借款类型", y = "平均违约率", title="不同借款类型的平均违约率")
 ```
-其他类别的平均违约概率最高，其次是电商，再其次是普通，APP闪电的平均违约率最低。
+
+其他类别的平均违约概率最高，其次是电商，再其次是普通，APP闪电的平均违约率最低，而在不同的借款类型中，平均违约率的差别不大。
 
 ## 违约损失率相关因素探究
-```{r}
+
+```{r, echo=FALSE}
 names(lc)[names(lc) == "性别"] <- "sex"
 LGD.sex <- lc %>%
     group_by(sex) %>%
     summarise(LGD_mean = mean(LGD))
 
-ggplot(aes(x=sex, y=LGD_mean),data = LGD.sex) +
-    geom_bar(stat="identity", width = 0.2, fill="#fab1a0") +
-    labs(x= "性别", y = "平均违约损失率", title="性别和违约损失率间关系") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+bivariate_bar_plot(LGD.sex$sex, LGD.sex$LGD_mean, LGD.sex) +
+    labs(x= "性别", y = "平均违约损失率", title="性别和违约损失率间关系")
 
 names(lc)[names(lc) == "sex"] <- "性别"
 ```
+
 可见女性的平均违约损失率要高于男性。
 
-```{r}
+```{r, echo=FALSE}
 names(lc)[names(lc) == "年龄"] <- "age"
 LGD.age <- lc %>%
     group_by(age) %>%
@@ -585,13 +729,17 @@ p1 <- ggplot(aes(x=age, y=LGD_mean),data = LGD.age) +
 
 p2 <- ggplot(aes(x=age.group, y=LGD_mean),data = LGD.age.group) +
     geom_bar(stat="identity", width = 0.2, fill="#fab1a0") +
-    labs(x= "年龄分组", y = "平均违约损失率", title="不同年龄分组的平均违约损失率") +
+    labs(x= "年龄分组", y = "平均违约损失率",
+         title="不同年龄分组的平均违约损失率") +
     theme(axis.text.x = element_text(angle = 30, hjust = 1),
         plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 grid.arrange(p1, p2, ncol = 2)
 names(lc)[names(lc) == "age"] <- "年龄"
 ```
+
+计算年龄大于22岁用户的年龄和违约损失的皮尔森系数：
+
 ```{r, warning=FALSE}
 sub.LGD.age <- subset(LGD.age, LGD.age$age > 22)
 cor.test(sub.LGD.age$age, sub.LGD.age$LGD_mean, method = "pearson")
@@ -613,6 +761,7 @@ ggplot(aes(x=rate, y=LGD_mean), data = LGD.rate) +
 
 names(lc)[names(lc) == "rate"] <- "借款利率"
 ```
+
 借款利率和违约损失率之间没有明显的相关性。
 
 ```{r}
@@ -623,7 +772,8 @@ LGD.initial_rating <- lc %>%
 
 ggplot(aes(x=initial_rating, y=LGD_mean),data = LGD.initial_rating) +
     geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
-    labs(x= "初始评级", y = "平均违约损失率", title="不同初始评级的平均违约违约损失率") +
+    labs(x= "初始评级", y = "平均违约损失率", 
+         title="不同初始评级的平均违约违约损失率") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 names(lc)[names(lc) == "initial_rating"] <- "初始评级"
@@ -650,6 +800,7 @@ p2 <- ggplot(aes(x = factor(auth), y =LGD), data = lc) +
 
 grid.arrange(p1, p2, ncol = 2)
 ```
+
 认证数3到5的违约损失率相对较高在2以上，其中认证数为4的平均违约率最高，认证数为6的平均违约率最低。
 
 
@@ -667,9 +818,11 @@ ggplot(aes(x=atype, y=default_ratio_mean),data = default_ratio.type) +
     labs(x= "借款类型", y = "平均违约率", title="不同借款类型的平均违约率") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 违约损失率和借款类型相关性不明显。
 
 ### 日期和业务指标相关因素探究
+
 ```{r warning=FALSE}
 sub_lc = subset(lc, lc$'是否首标' == '是')
 ggplot(aes(x = sub_lc$"借款成功日期"), data = sub_lc) +
@@ -678,7 +831,9 @@ ggplot(aes(x = sub_lc$"借款成功日期"), data = sub_lc) +
     labs(x="借款成功日期", y = "客户数", title="日新增用户变化曲线") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 在2015年1月到2016年7月，每日获客数日益增加，在2016年7月到2017年1月日新增用户数趋于稳定，只是小幅波动。
+
 ```{r fig.width=25}
 names(lc)[names(lc) == "借款成功日期"] <- "date"
 names(lc)[names(lc) == "借款金额"] <- "amout"
@@ -697,7 +852,9 @@ ggplot(aes(x = date, y = sum), data = amout.date) +
     theme(axis.text.x = element_text(hjust = 1),
             plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 借款金额逐渐增加，反映了平台的借贷业务发展良好。
+
 ```{r}
 ggplot(aes(x = date, y = count), data = amout.date) +
     geom_point(color = "#fab1a0") +
@@ -706,9 +863,11 @@ ggplot(aes(x = date, y = count), data = amout.date) +
     theme(axis.text.x = element_text(hjust = 1),
             plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 每日的借贷人数逐渐增加，说明平台的业务发展态势良好。
 
 ### 探讨你在这部分探究中观察到的一些关系。这些感兴趣的特性与数据集内其他特性有什么区别？
+
 - 探究初始评级和认证数和用户借贷利率之间的关系
 - 探究违约率和性别、年龄、借贷利率、初始评级、认证数、借款类型之间的关系
 - 探究违约损失率和性别、年龄、借贷利率、初始评级、认证数、借款类型之间的关系
@@ -716,6 +875,7 @@ ggplot(aes(x = date, y = count), data = amout.date) +
 - 探究每日借款金额、借款人数随时间的变化关系
 
 ### 你是否观察到主要特性与其他特性之间的有趣关系？
+
 - 违约率相关因素：
     - 女性的违约率高于男性
     - 违约损失率和年龄、借款利率、借款类型无明显关系。
@@ -731,10 +891,14 @@ ggplot(aes(x = date, y = count), data = amout.date) +
     - 日新增人数、每日借款金额、每日借款人数随着时间逐渐增大，可见平台的业务发展状态良好。
 
 ### 你发现最强的关系是什么？
+
 - 当年纪大于22岁，年龄和违约损失率之间呈现强负相关，皮尔森相关系数为-0.985
 
 # 多变量绘图选择
-```{r echo=FALSE, Multivariate_Plots0}
+
+探究违约损失率和年龄、认证数以及性别之间的关系。
+
+```{r  Multivariate_Plots0}
 names(lc)[names(lc) == "性别"] <- "sex"
 names(lc)[names(lc) == "年龄"] <- "age"
 LDG.by_sex_age = lc %>%
@@ -750,10 +914,12 @@ ggplot(aes(x = age, y = mean_LGD), data = LDG.by_sex_age) +
     geom_smooth() +
     geom_vline(xintercept = 27, alpha = 0.6, linetype = 6, color = "red") +
     scale_x_continuous(breaks = seq(17, 60, 2)) +
-    labs(x = "年龄", y = "违约损失率", title = "违约损失率和年龄、性别的关系") +
+    labs(x = "年龄", y = "违约损失率", 
+         title = "年龄 VS 违约损失率,配合性别颜色编码,认证数大小编码") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
-```{r echo=FALSE, fig.width=15, Multivariate_Plots1}
+
+```{r  fig.width=15, Multivariate_Plots1}
 names(lc)[names(lc) == "性别"] <- "sex"
 names(lc)[names(lc) == "借款成功日期"] <- "date"
 names(lc)[names(lc) == "借款金额"] <- "accout"
@@ -766,24 +932,46 @@ names(lc)[names(lc) == "date"] <- "借款成功日期"
 names(lc)[names(lc) == "accout"] <- "借款金额"
 names(lc)[names(lc) == "sex"] <- "性别"
 
-ggplot(aes(x = date, y = accout_sum, size = count, color = sex), data = amout.date) +
+ggplot(aes(x = date, y = accout_sum, size = count,
+           color = sex), data = amout.date) +
     geom_point() +
-    labs(x = "借款成功日期", y = "借款金额", color = "性别", size = "借款人数",
-         title = "借款金额、人数随日期的变化关系") +
+    labs(x = "借款成功日期", y = "借款金额(RMB)", 
+         color = "性别", size = "借款人数",
+         title = "日期 VS 借款金额，配合性别颜色编码以及人数大小编码") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 随着时间变化用户的借款金额、借款人数都逐渐增大，反映出业务发展状态良好，而且年龄的借款金额的增长量大于女性。
+
+
+```{r}
+ggplot(aes(x = lc$"借款利率", y = lc$"借款金额",
+           color = lc$"初始评级"), data = lc) +
+    geom_jitter(width = 0.5, size = 1) +
+    scale_x_continuous(breaks = seq(6, 25, 2)) +
+    scale_y_log10() +
+    labs(x = "借款利率(%)", y = "log(借款金额(RMB))", color = "初始评级",
+         title = "借款利率 VS log(借款金额)，配合初始评级进行颜色编码") +
+    scale_color_brewer(type = "div") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+```
+
+初始评级为A、B、C的用户的借款利率大多数低于20%，D、E、F用户的借款利率大多数在20%以上，在不同的借款利率下用户的借款金额的分布很分散，特别地，在借款利率小于等于16%的用户中借款金额大于等于10万的用户占借款金额大于10万的用户的绝大多数，同样地借款利率大于等于20%几乎没有用户的借款金额超过10万，而当借款利率为24%时，几乎没有用户的借款金额超过1万，可见用户的初始评级和借款利率存在一定的关系，同时借款利率越高，用户的进款金额的上限也会降低。
 
 # 多变量分析
 
 ###  探讨你在这部分探究中观察到的一些关系。通过观察感兴趣的特性，是否存在相互促进的特性？
+
 - 探究违约损失率随年龄、性别和违约损失率之间的变化关系
 - 探究借款金额、借款人数随时间的变化关系
 
 ### 这些特性之间是否存在有趣或惊人的联系呢？
+
 - 在27岁以前违约损失率和年纪呈现正相关，在27岁以后违约损失率和年龄呈现负相关，而且女性的违约损失率要高于男性，认证数在年龄变化上无明显的变化。
 - 随着时间变化用户的借款金额、借款人数都逐渐增大，反映出业务发展状态良好，而且年龄的借款金额的增长量大于女性。
+
 ### 创建过数据集的任何模型？讨论你模型的优缺点。
+
 - 创建对违约损失率根据年龄、性别分组，并据此分别计算违约损失率和认证数的均值。经过前面单变量、双变量探索可以知道违约损失率在年龄大于22岁时，和年纪成反比，同时女性的概率高于男性，并且违约损失率和认证数有一定的关系，通过关键这个新的模型，可以观察到违约损失率随年龄的变化，在性别上的不同表现以及认证数在随年龄的变化关系。
 
 - 借款金额和借款人数是拍拍贷业务的两个重要的相关因素，将这两个指标在实践和性别维度进行分组，研究其随着时间变化趋势，以及和性别的关系。
@@ -792,61 +980,55 @@ ggplot(aes(x = date, y = accout_sum, size = count, color = sex), data = amout.da
 # 定稿图与总结
 
 ## 用户画像分析
+
 用户画像主要从用户的基本信息分析(包含年龄和性别)以及信用信息分析(包含初始评级和认证情况)进行分析。
 
-### 性别的用户数量分布
-```{r echo=FALSE, Plot_One}
-ggplot(aes(x = lc$'性别'), data = lc) +
-    geom_histogram(stat = "count", width=0.2, fill="#fab1a0") +
-    labs(x = "性别", y = "用户数", title = "不同性别用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
-```
-拍拍贷的客户群体中以男性为主，男性远多于女性。
+### 性别和年龄的用户数量分布
 
-### 年龄的用户数量分布
+```{r  fig.width=15}
+p1 <- univariate_hist_plot(lc$'性别') +
+    labs(x = "性别", y = "用户数", title = "不同性别用户数分布")
 
-```{r echo=FALSE, Plot_Two}
-p1 <- ggplot(aes(x = lc$"年龄"), data = lc) +
+p2 <- ggplot(aes(x = lc$"年龄"), data = lc) +
     geom_histogram(stat = "count", width=0.4, fill="#fab1a0") +
     scale_x_continuous(breaks = seq(17, 60, 4)) +
     labs(x = "年龄", y = "用户数",title = "不同年龄组用户数分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12),
           axis.text.x = element_text(angle = 0, hjust = 0.5))
 
-p2 <- ggplot(aes(x = age.group, fill=lc$'性别'), data = lc) +
+p3 <- ggplot(aes(x = age.group, fill=lc$'性别'), data = lc) +
     geom_histogram(stat = "count", width=0.4) +
-    labs(x = "年龄分组", y = "用户数", fill = "性别", title = "不同年龄组用户数分布") +
+    labs(x = "年龄分组", y = "用户数", fill = "性别",
+         title = "不同年龄组用户数分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12),
           axis.text.x = element_text(angle = 30, hjust = 1)) +
-    scale_color_calc()
+    scale_color_brewer(type = "div")
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+拍拍贷的客户群体中以男性为主，男性远多于女性；用户年龄呈现左偏分布，取值范围位于17到56岁之间，将用户的年龄划分为小于18岁，18到22岁，22到25岁，25到28岁，28到35，35到40岁以及40岁以上几个区间段对用户数分析，其中28到35岁的用户数量时最多的，其次是25岁到28岁，再其次是22到25岁，而且小于18岁的用户数很少，在整个客户群体中几乎可以忽略，在不同年龄分组中男性的占比高于女性。
+
+### 认证数和初始评级用户数量分布
+
+```{r  Plot_Three}
+p1 <- univariate_hist_plot(factor(lc$auth)) +
+    scale_y_log10(breaks=c(10, 100, 1000, 5000, 10000, 100000)) +
+    labs(x="认证数", y="log(用户数)", title="手机认证的用户数分布")
+
+p2 <- univariate_hist_plot(lc$'初始评级') +
+    labs(x = "初始信用评级", y = "用户数", title="初始信用评级在用户数上分布")
 
 grid.arrange(p1, p2, ncol = 2)
 ```
-拍拍贷用户的年龄呈现左偏分布，取值范围位于17到56岁之间，将用户的年龄划分为小于18岁，18到22岁，22到25岁，25到28岁，28到35，35到40岁以及40岁以上几个区间段对用户数分析，其中28到35岁的用户数量时最多的，其次是25岁到28岁，再其次是22到25岁，而且小于18岁的用户数很少，在整个客户群体中几乎可以忽略，在不同年龄分组中男性的占比高于女性。
-
-### 认证数用户数量分布
-```{r echo=FALSE, Plot_Three}
-ggplot(aes(x=factor(auth)), data=lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0") +
-    scale_y_log10(breaks=c(10, 100, 1000, 5000, 10000, 100000)) +
-    labs(x="认证数", y="log(用户数)", title="手机认证的用户数分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
-```
-从认证数可以看出在统计的手机认证、户口认证、视频认证、学历认证、征信认证、淘宝认证中，绝大数无认证或者只完成了其中的0到2项认证，只有极少数的人完成了6项认证。
-
-### 初始评级的用户数分布
-```{r}
-ggplot(aes(x = lc$'初始评级'), data = lc)+
-    geom_histogram(stat = "count", width=0.4, fill="#fab1a0")+
-    labs(x = "初始信用评级", y = "用户数", title="初始信用评级在用户数上分布") +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
-```
-用户的信用等级为D的用户最多，其次是C，这两者占用户信用等级的绝大多数，没有信用等级在AAA和AA的，从整体上来看用户的初始信用等级不高，需要加强用户信用等级的审核。
+从认证数可以看出在统计的手机认证、户口认证、视频认证、学历认证、征信认证、淘宝认证中，绝大数无认证或者只完成了其中的0到2项认证，只有极少数的人完成了6项认证；在初始等级中可以看到，用户的信用等级为D的用户最多，其次是C，这两者占用户信用等级的绝大多数，没有信用等级在AAA和AA的，从整体上来看用户的初始信用等级不高，需要加强用户信用等级的审核。
 
 ## 平台业务基本情况分析
+
 平台业务的基本情况分析主要从借款金额分布、借款期限用户分布、借款类型分布、借款金额分布、是否首标、借款利率分布、平均利率和初始评级间的关系、违约概率分布,违约损失概率分布等角度进行分析。
 
 ### 借款金额的用户数量分布情况
+
 ```{r}
 p1 <- ggplot(aes(x = lc$'借款金额'), data = lc) +
     geom_freqpoly(color="#fab1a0") +
@@ -864,18 +1046,22 @@ p2 <- ggplot(aes(x = amount.group), data = lc) +
   
 grid.arrange(p1, p2, ncol = 2)
 ```
+
 用户的借款金额比较分散，取值范围为100到50万，主要集中在2千到4千。
 
 ### 借款期限的用户数量分布情况
+
 ```{r}
 ggplot(aes(x=long.group), data = lc) +
     geom_histogram(stat = "count", width = 0.4, fill="#fab1a0") +
     labs(x="借款期限分组", y="用户数", title="借款期限分组用户分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 借款期限的数据比较分散，取值范围为1到24个月，按照6个月为间隔将借款期限划分为半年、一年、一年半和两年屏蔽一些不必要的差异，上图可以看到，大多数借款期限集中在半年和一年，其他的用户数很少很少。
 
 ### 借款类型的用户数量分布
+
 ```{r}
 lc$type = factor(lc$'借款类型', levels = c("普通", "APP闪电", "其他", "电商"))
 ggplot(aes(x = type), data = lc) +
@@ -884,15 +1070,18 @@ ggplot(aes(x = type), data = lc) +
     theme(axis.text.x = element_text(hjust = 0.5),
             plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 通过观察借款类型，普通性用户最多，其次是APP闪电，再其次是其他，电商用户很少，微乎其微。
 
 ### 是否首标用户分布
+
 ```{r}
 ggplot(aes(x=lc$'是否首标'), data = lc) +
     geom_histogram(stat = "count", width = 0.2, fill="#fab1a0") +
     labs(x="是否首标", y="用户数", title="是否首标用户数分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 大多数用户不是首标，可见大多数用户是老用户。
 
 ### 借款利率用户数分布
@@ -903,14 +1092,17 @@ ggplot(aes(y = lc$'借款利率'), data = lc) +
     labs(y="借款利率", title="借款利率箱线图") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 用户的借款利率从6.5%到24%，各个利率阶段用户的数据较为分散，其中20%和22%用户数量分别126330和137899这样的，这两者已经占到总用户的80.4%。
 
 ### 平均利率和初始评级间的关系
 
 ## 平台业务发展情况分析
+
 平台业务业务发展情况，主要从包含借款次数变化、借款金额变化、日新增用户变化情况进行分析。
 
 ### 日新增用户变化情况
+
 ```{r warning=FALSE}
 sub_lc = subset(lc, lc$'是否首标' == '是')
 ggplot(aes(x = sub_lc$"借款成功日期"), data = sub_lc) +
@@ -919,6 +1111,7 @@ ggplot(aes(x = sub_lc$"借款成功日期"), data = sub_lc) +
     labs(x="借款成功日期", y = "客户数", title="日新增用户变化曲线") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 在2015年1月到2016年7月，每日获客数日益增加，在2016年7月到2017年1月日新增用户数趋于稳定，只是小幅波动。
 
 ### 日借贷金额变化
@@ -943,6 +1136,7 @@ ggplot(aes(x = date, y = sum), data = amout.date) +
 借款金额逐渐增加，反映了平台的借贷业务发展良好。
 
 ### 日借贷人数变化
+
 ```{r}
 ggplot(aes(x = date, y = count), data = amout.date) +
     geom_point(color = "#fab1a0") +
@@ -951,10 +1145,12 @@ ggplot(aes(x = date, y = count), data = amout.date) +
     theme(axis.text.x = element_text(hjust = 1),
             plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 每日的借贷人数逐渐增加，说明平台的业务发展态势良好。
 
 ### 借款金额、借款人数随时间变化关系
-```{r echo=FALSE, fig.width=15}
+
+```{r  fig.width=15}
 names(lc)[names(lc) == "性别"] <- "sex"
 names(lc)[names(lc) == "借款成功日期"] <- "date"
 names(lc)[names(lc) == "借款金额"] <- "accout"
@@ -967,16 +1163,21 @@ names(lc)[names(lc) == "date"] <- "借款成功日期"
 names(lc)[names(lc) == "accout"] <- "借款金额"
 names(lc)[names(lc) == "sex"] <- "性别"
 
-ggplot(aes(x = date, y = accout_sum, size = count, color = sex), data = amout.date) +
+ggplot(aes(x = date, y = accout_sum, size = count, color = sex), 
+       data = amout.date) +
     geom_point() +
-    labs(x = "借款成功日期", y = "借款金额", color = "性别", size = "借款人数",
-         title = "借款金额、人数随日期的变化关系") +
+    labs(x = "借款成功日期", y = "借款金额(RMB)",
+         color = "性别", size = "借款人数",
+         title = "日期 VS 借款金额，配合性别颜色编码以及人数大小编码") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 随着时间变化用户的借款金额、借款人数都逐渐增大，反映出业务发展状态良好，而且年龄的借款金额的增长量大于女性。
 
 ## 风险指标分析
+
 ### 违约损失概率用户分布
+
 ```{r}
 # 违约概率用户数分布
 ggplot(aes(x = lc$default_ratio), data = lc) +
@@ -985,19 +1186,24 @@ ggplot(aes(x = lc$default_ratio), data = lc) +
     labs(x="违约概率", y="用户数", title="违约概率用户数分布") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 违约概率为0的客户占比为84.7%,违约概率大于0的用户群中0.5出现的概率最高，违约概率0.5的群体占比可达到95%，违约概率低于0.69的客户占比达到99%.
 
 ### 违约损失率随时间的变化
+
 ```{r}
 ggplot(aes(x = lc$'借款成功日期', y = default_ratio), data = lc) +
     geom_point(stat = "summary", fun.y = "mean", color = "#fab1a0") +
     geom_smooth() +
-    labs(x = "借款成功日期", y = "违约率均值", title = "违约率均值随时间的变化") +
+    labs(x = "借款成功日期", y = "违约率均值",
+         title = "违约率均值随时间的变化") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 违约率不高，且无明显波动。
 
 ### 违约率相关因素探究
+
 ```{r}
 names(lc)[names(lc) == "性别"] <- "sex"
 default_ratio.sex <- lc %>%
@@ -1011,21 +1217,26 @@ ggplot(aes(x=sex, y=default_ratio_mean),data = default_ratio.sex) +
 
 names(lc)[names(lc) == "sex"] <- "性别"
 ```
+
 可见女性的违约率高于男性。
+
 ```{r}
 names(lc)[names(lc) == "初始评级"] <- "initial_rating"
 default_ratio.initial_rating <- lc %>%
     group_by(initial_rating) %>%
     summarise(default_ratio_mean = mean(default_ratio))
 
-ggplot(aes(x=initial_rating, y=default_ratio_mean),data = default_ratio.initial_rating) +
+ggplot(aes(x=initial_rating, y=default_ratio_mean),
+       data = default_ratio.initial_rating) +
     geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
     labs(x= "初始评级", y = "平均违约率", title="不同初始评级的平均违约率") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 names(lc)[names(lc) == "initial_rating"] <- "初始评级"
 ```
+
 从上图可以看到，大体上初始评级越差平均违约率也越高，其中F等级的违约率最高，其次是E等级，A等级的违约率最低。
+
 ```{r}
 default_ratio.auth <- lc %>%
     group_by(auth) %>%
@@ -1036,12 +1247,14 @@ ggplot(aes(x=factor(auth), y=default_ratio_mean),data = default_ratio.auth) +
     labs(x= "认证数", y = "平均违约率", title="不同认证数的平均违约率") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 认证数从0到3平均违约率逐渐升高，之后从4到6又逐渐降低，认证数为0的用户的平均违约率最低。
 
 - 女性的违约率高于男性
 - 违约损失率和年龄、借款利率、借款类型无明显关系。
 - 大体上初始评级越差平均违约率也越高，其中F等级的违约率最高，其次是E等级，A等级的违约率最低。
 - 认证数从0到3平均违约率逐渐升高，之后从4到6又逐渐降低，认证数为0的用户的平均违约率最低。
+
 ### 违约损失用户分布
 ```{r}
 ggplot(aes(y = LGD), data = lc) +
@@ -1050,19 +1263,24 @@ ggplot(aes(y = LGD), data = lc) +
     labs(y = "违约损失", title = "违约损失分布箱线图") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 违约损失的分布比较离散，取值范围是0到396.14，中位数是0.78，其中取值为0的用户占比为30.8%，方差分布也不大，违约损失最高可达396.14，平台需要关注用户违约造成的风险程度，对违约损失较高的群体，进行催还款以及对新的贷款申请加强审核和风险告知。
 
 ### 违约损失率随时间的变化
+
 ```{r}
 ggplot(aes(x = lc$'借款成功日期', y = LGD), data = lc) +
     geom_point(stat = "summary", fun.y = "mean", color = "#fab1a0") +
     geom_smooth() +
-    labs(x = "借款成功日期", y = "违约损失率均值", title = "违约损失率均值随时间的变化") +
+    labs(x = "借款成功日期", y = "违约损失率均值",
+         title = "违约损失率均值随时间的变化") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
 ```
+
 从上图可见，平台的违约损失率盘旋着上升，平台需要加强催款和相关人员的贷款申请的审核。
 
 ### 违约损失率相关因素分析
+
 ```{r}
 names(lc)[names(lc) == "性别"] <- "sex"
 LGD.sex <- lc %>%
@@ -1076,6 +1294,7 @@ ggplot(aes(x=sex, y=LGD_mean),data = LGD.sex) +
 
 names(lc)[names(lc) == "sex"] <- "性别"
 ```
+
 女性的平均违约损失率高于男性。
 
 ```{r}
@@ -1095,13 +1314,15 @@ p1 <- ggplot(aes(x=age, y=LGD_mean),data = LGD.age) +
 
 p2 <- ggplot(aes(x=age.group, y=LGD_mean),data = LGD.age.group) +
     geom_bar(stat="identity", width = 0.2, fill="#fab1a0") +
-    labs(x= "年龄分组", y = "平均违约损失率", title="不同年龄分组的平均违约损失率") +
+    labs(x= "年龄分组", y = "平均违约损失率",
+         title="不同年龄分组的平均违约损失率") +
     theme(axis.text.x = element_text(angle = 30, hjust = 1),
         plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 grid.arrange(p1, p2, ncol = 2)
 names(lc)[names(lc) == "age"] <- "年龄"
 ```
+
 从上图可以看出，18到22岁的违约损失率最低，大于22岁，年龄和违约损失率之间呈现负相关。
 
 ```{r}
@@ -1112,7 +1333,8 @@ LGD.initial_rating <- lc %>%
 
 ggplot(aes(x=initial_rating, y=LGD_mean),data = LGD.initial_rating) +
     geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
-    labs(x= "初始评级", y = "平均违约损失率", title="不同初始评级的平均违约违约损失率") +
+    labs(x= "初始评级", y = "平均违约损失率", 
+         title="不同初始评级的平均违约违约损失率") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 names(lc)[names(lc) == "initial_rating"] <- "初始评级"
@@ -1128,7 +1350,8 @@ LGD.auth <- lc %>%
 p1 <- ggplot(aes(x=factor(auth), y=LGD_mean),data = LGD.auth) +
     geom_bar(stat="identity", width = 0.3, fill="#fab1a0") +
     scale_y_continuous(breaks = seq(0, 3, 0.5)) +
-    labs(x= "认证数", y = "平均违约损失率", title="不同认证数的平均违约损失率") +
+    labs(x= "认证数", y = "平均违约损失率", 
+         title="不同认证数的平均违约损失率") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 
 p2 <- ggplot(aes(x = factor(auth), y =LGD), data = lc) +
@@ -1139,6 +1362,7 @@ p2 <- ggplot(aes(x = factor(auth), y =LGD), data = lc) +
 
 grid.arrange(p1, p2, ncol = 2)
 ```
+
 认证数3到5的违约损失率相对较高在2以上，其中认证数为4的平均违约率最高，认证数为6的平均违约率最低。
 
 经过上述相关性探究可知:
@@ -1149,7 +1373,8 @@ grid.arrange(p1, p2, ncol = 2)
 - 违约损失率和借款利率、借款类型相关性不明显。
 
 ### 违约损失率和年龄性别相关性展示
-```{r echo=FALSE}
+
+```{r}
 names(lc)[names(lc) == "性别"] <- "sex"
 names(lc)[names(lc) == "年龄"] <- "age"
 LDG.by_sex_age = lc %>%
@@ -1166,10 +1391,26 @@ ggplot(aes(x = age, y = mean_LGD), data = LDG.by_sex_age) +
     geom_vline(xintercept = 27, alpha = 0.6, linetype = 6, color = "red") +
     scale_x_continuous(breaks = seq(17, 60, 2)) +
     labs(x = "年龄", y = "违约损失率", color = "性别", size = "认证数",
-         title = "违约损失率和年龄、性别的关系") +
+         title = "年龄 VS 违约损失率,配合性别颜色编码,认证数大小编码") +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
 ```
+
 从上图可以看出，当用户年龄小于27岁，违约损失率和年纪呈现正相关，年龄大于27岁，随着年纪增大，违约损失率和年纪呈现负相关，从性别角度观察，各个年级段大都是女性的违约损失率高于男性，而从认证数角度来看，各个年级段的认证数相差不大，17到19岁左右用户的认证数较小，这部分用户群体数量特别小。
+
+```{r}
+ggplot(aes(x = lc$"借款利率", y = lc$"借款金额",
+           color = lc$"初始评级"), data = lc) +
+    geom_jitter(width = 0.5, size = 1) +
+    scale_x_continuous(breaks = seq(6, 25, 2)) +
+    scale_y_log10() +
+    labs(x = "借款利率(%)", y = "log(借款金额(RMB))", color = "初始评级",
+         title = "借款利率 VS log(借款金额)，配合初始评级进行颜色编码") +
+    scale_color_brewer(type = "div") +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+```
+
+初始评级为A、B、C的用户的借款利率大多数低于20%，D、E、F用户的借款利率大多数在20%以上，在不同的借款利率下用户的借款金额的分布很分散，特别地，在借款利率小于等于16%的用户中借款金额大于等于10万的用户占借款金额大于10万的用户的绝大多数，同样地借款利率大于等于20%几乎没有用户的借款金额超过10万，而当借款利率为24%时，几乎没有用户的借款金额超过1万，可见用户的初始评级和借款利率存在一定的关系，同时借款利率越高，用户的进款金额的上限也会降低。
+
 
 ------
 
