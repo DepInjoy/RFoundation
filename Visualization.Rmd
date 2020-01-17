@@ -407,6 +407,10 @@ ggplot(aes(x = tenure, y = friendships_initiated / tenure),
 
 ### 偏差方差折衷
 - [理解偏差-方差折衷(Bias-Variance Tradeof)](http://scott.fortmann-roe.com/docs/BiasVariance.html)
+```{r}
+str(df_facebook)
+```
+
 ```{r, echo=FALSE}
 p1 <- ggplot(aes(x = tenure, y = friendships_initiated / tenure), 
        data = subset(df_facebook, tenure >= 1)) +
