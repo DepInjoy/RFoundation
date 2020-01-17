@@ -1,0 +1,67 @@
+---
+title: "Untitled"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+```
+
+载入数据
+
+```{r}
+yogurt <- read.csv("yogurt.csv")
+#将id从int转换为fatcor
+yogurt$id <- factor(yogurt$id)
+str(yogurt)
+```
+对用户数据进行重组，计算用户的整体的购买量存储于all.purchases变量中。
+```{r}
+yogurt <-transform(yogurt, all.purchases = (strawberry + blueberry + pina.colada + plain + mixed.berry))
+str(yogurt)
+```
+
+### 购买价格
+
+price分布比较离散，通过设置binwidth来错过一些离散的点.
+```{r}
+ggplot(aes(x = price), data = yogurt) +
+    geom_histogram(binwidth = 5) +
+    scale_x_continuous(breaks = seq(20, 70, 5))
+```
+通过统计量来查看price的价格分布。
+```{r}
+table(yogurt$price)
+```
+```{r}
+summary(yogurt$price)
+```
+```{r}
+ggplot(aes(x = time, y = price), data = yogurt) +
+    geom_jitter(alpha = 1/4)
+```
+根据id对进行抽样观测
+```{r fig.width=15}
+set.seed(5760)
+id.sample = sample(levels(yogurt$id), 16)
+ggplot(aes(x = time, y = price), data = subset(yogurt, id %in% id.sample)) +
+    facet_wrap(~id, ncol = 4) +
+    geom_point(aes(size = all.purchases), pch = 1) + 
+    geom_line()
+```
+
+### 用户购买数量
+```{r}
+ggplot(aes(x = all.purchases), data = yogurt) +
+    geom_histogram(binwidth = 1) +
+    scale_x_continuous(breaks = seq(1, 30, 2))
+```
+
+```{r}
+levels(yogurt$id)
+```
+
