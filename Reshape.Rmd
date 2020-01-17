@@ -1,9 +1,13 @@
 ---
-title: "数据重塑"
+title: "数据重塑:改变数据的布局"
 output: github_document
 ---
 
-```{r}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
 library(ggplot2)
 library(reshape2)
 library(tidyr)
@@ -19,9 +23,11 @@ str(diamonds_subset)
 
 ### 长表格和宽表格转换
 
-#### 实现方式一:(gether-spread)
+#### 实现方式一:(gather-spread)
 
 ##### 将宽表格转换为长表格(gather)
+将多列的数据合并为两列，实现将列中的数据放回到行里
+
 ```{r}
 diamonds_subset.long2 <-  gather(diamonds_subset, key = "varName", value = "varValue", 
                                  carat:depth, factor_key = TRUE)
@@ -44,6 +50,7 @@ levels(diamonds_subset.long2$cut)[levels(diamonds_subset.long2$cut) == "Premium"
 diamonds_subset.long2
 ```
 ##### 将长表格转换为宽表格(spread)
+将两列数据转化成多列
 ```{r}
 diamonds_subset.wide.spread <- spread(diamonds_subset.long2, "varName", "varValue")
 diamonds_subset.wide.spread
@@ -58,6 +65,8 @@ diamonds_subset.wide.spread
 
 
 #### 实现方式二:melt-cast
+- melt：将wide-format数据`熔化`成long-format数据；
+- cast：将long-format数据`重铸`成wide-format数据。
 
 ##### 将宽表格转化为长表格(melt)
 melt实现将数重构为每个测量变量独占一行，每行带有唯一确定这个测量所需要的标识符变量。
@@ -110,6 +119,21 @@ diamonds_subset.wide.dcast
 names(diamonds_subset.wide.dcast)[names(diamonds_subset.wide.dcast) == "cut"] <- "Cut"
 levels(diamonds_subset.wide.dcast$Cut)[levels(diamonds_subset.wide.dcast$Cut) == "Good"] <- "Best"
 diamonds_subset.wide.dcast
+```
+
+#### unite-separate
+
+##### unite用分隔符将多列合并为一列
+```{r}
+diamonds.unite <- unite(diamonds, "desc", cut, color, clarity, price, sep = "-")
+diamonds.unite
+```
+
+##### separate将分隔符分割的字符串表示的一列拆分为多列
+```{r}
+diamonds.separate = separate(diamonds.unite, "desc", 
+            c("cut", "color", "clarity", "price"), sep = "-")
+diamonds.separate
 ```
 
 
