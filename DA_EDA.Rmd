@@ -1,0 +1,60 @@
+---
+title: "R:探索性数据分析"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+[](https://dzchilds.github.io/eda-for-bio/relationships-between-two-variables.html)
+
+```{r}
+library("ggplot2")
+```
+```{r}
+str(storms)
+```
+
+
+## 双变量数据探索分析
+
+### 相关性描述统计量
+
+- 皮尔森(Pearson)相关系数
+
+皮尔森相关系数取值范围为[-1, 1]，用来表示两个变量线性相关性程度。
+
+```{r}
+cor(storms$wind, storms$pressure, method = "pearson")
+```
+
+- 斯皮尔曼(Spearman)相关系数
+
+如果两个变量是非线性的，可以采用斯皮尔曼相关系数来描述变量间的相关程度。
+
+```{r}
+cor(storms$wind, storms$pressure, method = "spearman")
+```
+
+- 肯德尔(Kendall)等级相关系数
+
+描述两个变量之间的相关程度，一般来说肯德尔等级相关系数比死皮德尔曼相关系数小，斯皮德尔曼相关系数应用广泛，与肯德尔相关系数相比，斯皮德尔曼对错误和差异更加敏感
+
+```{r}
+cor(storms$wind, storms$pressure, method = "kendall")
+```
+
+### 双变量绘图
+
+```{r}
+ggplot(storms, aes(x = pressure, y = wind)) +
+    geom_count(alpha = 0.5)
+```
+
+```{r}
+ggplot(storms, aes(x = pressure, y = wind)) +
+    geom_hex(bins = 25) +
+    scale_color_brewer(type = "div")
+```
+
+
